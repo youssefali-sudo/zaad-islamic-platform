@@ -27,48 +27,99 @@ $('#plusCount').onclick=()=>{state.counter=clampCounter(state.counter+1);$('#cou
 $('#exportBtn').onclick=()=>{const a=document.createElement('a'),blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});a.href=URL.createObjectURL(blob);a.download='zaad-backup.json';a.click();URL.revokeObjectURL(a.href)};
 $('#importFile').onchange=async e=>{try{const data=JSON.parse(await e.target.files[0].text());if(!data.days||typeof data.days!=='object')throw Error();state={...defaults,...data};save();renderHabits();renderPages();alert('تم استيراد النسخة بنجاح')}catch{alert('ملف النسخة غير صالح')}};
 
-async function loadReciters(){
+const RECITERS=[
+  ['ar.alafasy','مشاري العفاسي'],
+  ['ar.abdurrahmaansudais','عبدالرحمن السديس'],
+  ['ar.husary','محمود خليل الحصري'],
+  ['ar.minshawi','محمد صديق المنشاوي'],
+  ['ar.mahermuaiqly','ماهر المعيقلي']
+];
+function loadReciters(){
   const select=$('#reciterSelect');
-  try{
-    const r=await fetch('https://api.alquran.cloud/v1/edition?format=audio&language=ar&type=versebyverse');
-    if(!r.ok)throw Error('editions');
-    const j=await r.json();
-    reciters=(j.data||[]).filter(x=>x.format==='audio'&&x.type==='versebyverse');
-    if(!reciters.length)throw Error('empty');
-    select.innerHTML=reciters.map(x=>'<option value="'+x.identifier+'">'+x.name+'</option>').join('');
-    $('#audioStatus').textContent='اختر من قائمة القرّاء المتاحة، ثم اضغط استمع للورد.';
-  }catch{
-    const fallback=[['ar.alafasy','مشاري العفاسي'],['ar.abdurrahmaansudais','عبدالرحمن السديس'],['ar.husary','محمود خليل الحصري'],['ar.minshawi','محمد صديق المنشاوي'],['ar.mahermuaiqly','ماهر المعيقلي']];
-    select.innerHTML=fallback.map(x=>'<option value="'+x[0]+'">'+x[1]+'</option>').join('');
-    $('#audioStatus').textContent='تعذر جلب القائمة الكاملة الآن؛ تظهر مجموعة قرّاء احتياطية.';
-  }
+  select.innerHTML=RECITERS.map(([id,name])=>'<option value="'+id+'">'+name+'</option>').join('');
+  $('#audioStatus').textContent='اختر القارئ ثم اضغط استمع. التلاوة تُحمّل مباشرة من خادم الصوت.';
+}
+function resetPlayer(message='اختر صفحة من الورد ثم اضغط استمع.'){
+  audioEl().pause();
+  audioEl().removeAttribute('src');
+  audioEl().load();
+  audioQueue=[];audioIndex=0;isPlaying=false;
+  $('#playWird').textContent='▶ استمع للورد';
+  $('#audioStatus').textContent=message;
 }
 async function playCurrentAyah(){
-  if(audioIndex>=audioQueue.length){isPlaying=false;$('#playWird').textContent='▶ استمع للورد';$('#audioStatus').textContent='انتهى ورد الصفحة. تقبّل الله منك.';return}
-  const ayah=audioQueue[audioIndex],edition=$('#reciterSelect').value;
+  if(audioIndex>=audioQueue.length){
+    isPlaying=false;
+    $('#playWird').textContent='▶ استمع للورد';
+    $('#audioStatus').textContent='انتهى ورد الصفحة. تقبّل الله منك.';
+    return;
+  }
+  const ayah=audioQueue[audioIndex];
+  const edition=$('#reciterSelect').value||'ar.alafasy';
+  const player=audioEl();
   $('#audioStatus').textContent='جاري تشغيل الآية '+(audioIndex+1)+' من '+audioQueue.length;
+  player.dataset.retry='0';
+  player.src='https://cdn.islamic.network/quran/audio/128/'+edition+'/'+ayah.number+'.mp3';
   try{
-    const r=await fetch('https://api.alquran.cloud/v1/ayah/'+ayah.number+'/'+edition);
-    if(!r.ok)throw Error('audio');
-    const j=await r.json();
-    if(!j.data.audio)throw Error('missing audio');
-    audioEl().src=j.data.audio;
-    await audioEl().play();
-  }catch{
-    isPlaying=false;$('#playWird').textContent='▶ استمع للورد';
-    $('#audioStatus').textContent='تعذر تشغيل هذه التلاوة حاليًا. جرّب قارئًا آخر أو أعد المحاولة.';
+    await player.play();
+    isPlaying=true;
+    $('#playWird').textContent='Ⅱ إيقاف مؤقت';
+  }catch(error){
+    isPlaying=false;
+    $('#playWird').textContent='▶ استمع للورد';
+    $('#audioStatus').textContent='لم يبدأ الصوت. اضغط تشغيل من مشغل الصوت أو جرّب قارئًا آخر.';
   }
 }
 $('#playWird').onclick=async()=>{
-  if(!currentPageAyahs.length){$('#audioStatus').textContent='اختر صفحة من الورد أولًا.';return}
-  if(isPlaying){audioEl().pause();isPlaying=false;$('#playWird').textContent='▶ استكمل الاستماع';return}
-  if(!audioQueue.length||audioIndex>=audioQueue.length){audioQueue=[...currentPageAyahs];audioIndex=0}
-  isPlaying=true;$('#playWird').textContent='Ⅱ إيقاف مؤقت';await playCurrentAyah();
+  if(!currentPageAyahs.length){
+    $('#audioStatus').textContent='اختر صفحة من صفحات الورد أولًا.';
+    return;
+  }
+  const player=audioEl();
+  if(isPlaying){
+    player.pause();
+    isPlaying=false;
+    $('#playWird').textContent='▶ استكمل الاستماع';
+    return;
+  }
+  if(audioQueue.length&&audioIndex<audioQueue.length&&player.src&&player.currentTime>0){
+    try{await player.play();isPlaying=true;$('#playWird').textContent='Ⅱ إيقاف مؤقت';return;}
+    catch{}
+  }
+  if(!audioQueue.length||audioIndex>=audioQueue.length){
+    audioQueue=[...currentPageAyahs];audioIndex=0;
+  }
+  await playCurrentAyah();
 };
-audioEl().addEventListener('ended',()=>{if(isPlaying){audioIndex++;playCurrentAyah()}});
-audioEl().addEventListener('pause',()=>{if(isPlaying&&audioEl().ended===false){isPlaying=false;$('#playWird').textContent='▶ استكمل الاستماع'}});
-$('#reciterSelect').addEventListener('change',()=>{audioEl().pause();audioQueue=[];audioIndex=0;isPlaying=false;$('#playWird').textContent='▶ استمع للورد';$('#audioStatus').textContent='تم اختيار القارئ. اضغط استمع للورد.'});
+audioEl().addEventListener('play',()=>{
+  isPlaying=true;
+  $('#playWird').textContent='Ⅱ إيقاف مؤقت';
+});
+audioEl().addEventListener('pause',()=>{
+  if(!audioEl().ended){
+    isPlaying=false;
+    $('#playWird').textContent='▶ استكمل الاستماع';
+  }
+});
+audioEl().addEventListener('ended',()=>{
+  if(isPlaying){audioIndex++;playCurrentAyah();}
+});
+audioEl().addEventListener('error',()=>{
+  const player=audioEl();
+  if(!player.src)return;
+  if(player.dataset.retry!=='1'){
+    player.dataset.retry='1';
+    player.src=player.src.replace('/128/','/64/');
+    player.play().catch(()=>{});
+    return;
+  }
+  isPlaying=false;
+  $('#playWird').textContent='▶ استمع للورد';
+  $('#audioStatus').textContent='تعذر تحميل الملف الصوتي. تحقق من الاتصال أو اختر قارئًا آخر.';
+});
+$('#reciterSelect').addEventListener('change',()=>{
+  resetPlayer('تم تغيير القارئ. اضغط استمع للورد لبدء التلاوة.');
+});
 
-loadReciters();
 loadZaadEngine();
 $('#todayDate').textContent=new Intl.DateTimeFormat(state.lang==='ar'?'ar-EG':'en',{dateStyle:'full'}).format(new Date());$('#counter').textContent=state.counter;setLang(state.lang);renderHabits();renderStats();renderPages();
