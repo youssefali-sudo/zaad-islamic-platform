@@ -45,6 +45,7 @@ const EVERYAYAH_FOLDERS={
 function loadReciters(){
   const select=$('#reciterSelect');
   select.innerHTML=RECITERS.map(([id,name])=>'<option value="'+id+'">'+name+'</option>').join('');
+  select.value='1';
   $('#audioStatus').textContent='اختر القارئ ثم اضغط استمع. الصوت من مصادر بديلة.';
 }
 function resetPlayer(message='اختر صفحة من الورد ثم اضغط استمع.'){
@@ -66,7 +67,6 @@ async function playCurrentAyah(){
   const surah=ayah.surah?.number, ayahNo=ayah.numberInSurah;
   const folder=EVERYAYAH_FOLDERS[reciter]||EVERYAYAH_FOLDERS['1'];
   const surahPad=String(surah).padStart(3,'0'), ayahPad=String(ayahNo).padStart(3,'0');
-  // Set a direct MP3 URL immediately so playback remains within the user's click gesture.
   player.dataset.fallbackUrl='https://the-quran-project.github.io/Quran-Audio/Data/'+reciter+'/'+surah+'_'+ayahNo+'.mp3';
   player.dataset.fallback='0';
   player.src='https://everyayah.com/data/'+folder+'/'+surahPad+ayahPad+'.mp3';
@@ -132,5 +132,6 @@ $('#reciterSelect').addEventListener('change',()=>{
   resetPlayer('تم تغيير القارئ. اضغط استمع للورد لبدء التلاوة.');
 });
 
+loadReciters();
 loadZaadEngine();
 $('#todayDate').textContent=new Intl.DateTimeFormat(state.lang==='ar'?'ar-EG':'en',{dateStyle:'full'}).format(new Date());$('#counter').textContent=state.counter;setLang(state.lang);renderHabits();renderStats();renderPages();
