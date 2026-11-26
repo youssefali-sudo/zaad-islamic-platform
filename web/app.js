@@ -67,18 +67,29 @@ async function playCurrentAyah(){
   const surah=ayah.surah?.number, ayahNo=ayah.numberInSurah;
   const folder=EVERYAYAH_FOLDERS[reciter]||EVERYAYAH_FOLDERS['1'];
   const surahPad=String(surah).padStart(3,'0'), ayahPad=String(ayahNo).padStart(3,'0');
-  player.dataset.fallbackUrl='https://the-quran-project.github.io/Quran-Audio/Data/'+reciter+'/'+surah+'_'+ayahNo+'.mp3';
-  player.dataset.fallback='0';
-  player.src='https://everyayah.com/data/'+folder+'/'+surahPad+ayahPad+'.mp3';
-  $('#audioStatus').textContent='جاري تشغيل الآية '+(audioIndex+1)+' من '+audioQueue.length;
-  try{
+  const primaryUrl='https://everyayah.com/data/'+folder+'/'+surahPad+ayahPad+'.mp3';
+  const backupUrl='https://the-quran-project.github.io/Quran-Audio/Data/'+reciter+'/'+surah+'_'+ayahNo+'.mp3';
+  $('#audioStatus').textContent='جارٍ تجهيز الآية '+(audioIndex+1)+' من '+audioQueue.length+'…';
+  const trySource=async(url)=>{
+    player.pause();
+    player.src=url;
+    player.load();
     await player.play();
+  };
+  try{
+    try {
+      await trySource(primaryUrl);
+    } catch(firstError) {
+      $('#audioStatus').textContent='نجرب مصدرًا صوتيًا بديلًا…';
+      await trySource(backupUrl);
+    }
     isPlaying=true;
     $('#playWird').textContent='Ⅱ إيقاف مؤقت';
+    $('#audioStatus').textContent='يتم تشغيل الآية '+(audioIndex+1)+' من '+audioQueue.length;
   }catch(error){
     isPlaying=false;
-    $('#playWird').textContent='▶ استمع للورد';
-    $('#audioStatus').textContent='لم يبدأ الصوت تلقائيًا. استخدم زر التشغيل داخل مشغل الصوت.';
+    $('#playWird').textContent='▶ إعادة المحاولة';
+    $('#audioStatus').textContent='تعذر تشغيل الصوت ('+(error?.name||'خطأ')+'). تأكد من اتصال الإنترنت ثم اضغط إعادة المحاولة.';
   }
 }
 $('#playWird').onclick=async()=>{
