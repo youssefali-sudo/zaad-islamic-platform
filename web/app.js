@@ -29,16 +29,23 @@ $('#exportBtn').onclick=()=>{const a=document.createElement('a'),blob=new Blob([
 $('#importFile').onchange=async e=>{try{const data=JSON.parse(await e.target.files[0].text());if(!data.days||typeof data.days!=='object')throw Error();state={...defaults,...data};save();renderHabits();renderPages();alert('تم استيراد النسخة بنجاح')}catch{alert('ملف النسخة غير صالح')}};
 
 const RECITERS=[
-  ['ar.alafasy','مشاري العفاسي'],
-  ['ar.sudais','عبدالرحمن السديس'],
-  ['ar.husary','محمود خليل الحصري'],
-  ['ar.minshawi','محمد صديق المنشاوي'],
-  ['ar.mahermuaiqly','ماهر المعيقلي']
+  ['1','مشاري العفاسي'],
+  ['2','أبو بكر الشاطري'],
+  ['3','ناصر القطامي'],
+  ['4','ياسر الدوسري'],
+  ['5','هاني الرفاعي']
 ];
+const EVERYAYAH_FOLDERS={
+  '1':'Alafasy_128kbps',
+  '2':'Abu_Bakr_Ash-Shaatree_128kbps',
+  '3':'Nasser_Alqatami_128kbps',
+  '4':'Yasser_Ad-Dussary_128kbps',
+  '5':'Hani_Rifai_192kbps'
+};
 function loadReciters(){
   const select=$('#reciterSelect');
   select.innerHTML=RECITERS.map(([id,name])=>'<option value="'+id+'">'+name+'</option>').join('');
-  $('#audioStatus').textContent='اختر القارئ ثم اضغط استمع. التلاوة تُحمّل مباشرة من خادم الصوت.';
+  $('#audioStatus').textContent='اختر القارئ ثم اضغط استمع. الصوت من مصادر بديلة.';
 }
 function resetPlayer(message='اختر صفحة من الورد ثم اضغط استمع.'){
   audioEl().pause();
@@ -55,20 +62,31 @@ async function playCurrentAyah(){
     $('#audioStatus').textContent='انتهى ورد الصفحة. تقبّل الله منك.';
     return;
   }
-  const ayah=audioQueue[audioIndex];
-  const edition=$('#reciterSelect').value||'ar.alafasy';
-  const player=audioEl();
-  $('#audioStatus').textContent='جاري تشغيل الآية '+(audioIndex+1)+' من '+audioQueue.length;
-  player.dataset.retry='0';
-  player.src='https://cdn.islamic.network/quran/audio/128/'+edition+'/'+ayah.number+'.mp3';
+  const ayah=audioQueue[audioIndex], reciter=$('#reciterSelect').value||'1', player=audioEl();
+  const surah=ayah.surah?.number, ayahNo=ayah.numberInSurah;
+  $('#audioStatus').textContent='جاري تجهيز الآية '+(audioIndex+1)+' من '+audioQueue.length;
+  player.dataset.fallback='0';
+  try{
+    const response=await fetch('https://quranapi.pages.dev/api/audio/'+surah+'/'+ayahNo+'.json');
+    if(!response.ok)throw Error('audio API');
+    const json=await response.json(), item=json[reciter];
+    if(!item?.url)throw Error('missing audio');
+    player.dataset.fallbackUrl=item.originalUrl||'';
+    player.src=item.url;
+  }catch{
+    const folder=EVERYAYAH_FOLDERS[reciter]||EVERYAYAH_FOLDERS['1'];
+    player.dataset.fallbackUrl='https://everyayah.com/data/'+folder+'/'+String(surah).padStart(3,'0')+String(ayahNo).padStart(3,'0')+'.mp3';
+    player.src=player.dataset.fallbackUrl;
+  }
   try{
     await player.play();
     isPlaying=true;
     $('#playWird').textContent='Ⅱ إيقاف مؤقت';
+    $('#audioStatus').textContent='يتم تشغيل الآية '+(audioIndex+1)+' من '+audioQueue.length;
   }catch(error){
     isPlaying=false;
     $('#playWird').textContent='▶ استمع للورد';
-    $('#audioStatus').textContent='لم يبدأ الصوت. اضغط تشغيل من مشغل الصوت أو جرّب قارئًا آخر.';
+    $('#audioStatus').textContent='المصدر الصوتي لم يستجب. جرّب تشغيل زر الصوت نفسه أو قارئًا آخر.';
   }
 }
 $('#playWird').onclick=async()=>{
@@ -108,15 +126,15 @@ audioEl().addEventListener('ended',()=>{
 audioEl().addEventListener('error',()=>{
   const player=audioEl();
   if(!player.src)return;
-  if(player.dataset.retry!=='1'){
-    player.dataset.retry='1';
-    player.src=player.src.replace('/128/','/64/');
+  if(player.dataset.fallback!=='1'&&player.dataset.fallbackUrl){
+    player.dataset.fallback='1';
+    player.src=player.dataset.fallbackUrl;
     player.play().catch(()=>{});
     return;
   }
   isPlaying=false;
   $('#playWird').textContent='▶ استمع للورد';
-  $('#audioStatus').textContent='تعذر تحميل الملف الصوتي. تحقق من الاتصال أو اختر قارئًا آخر.';
+  $('#audioStatus').textContent='فشل المصدران الصوتيان. جرّب الاتصال أو قارئًا آخر.';
 });
 $('#reciterSelect').addEventListener('change',()=>{
   resetPlayer('تم تغيير القارئ. اضغط استمع للورد لبدء التلاوة.');
