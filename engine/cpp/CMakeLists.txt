@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.16)
+project(zaad_core LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 17)
+add_library(zaad_core STATIC zaad_core.cpp)
+target_include_directories(zaad_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
