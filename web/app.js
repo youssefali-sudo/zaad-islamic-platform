@@ -4,7 +4,13 @@ import { loadZaadEngine, clampCounter } from './zaad-engine.js';
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const today=new Date().toISOString().slice(0,10);
 const defaults={days:{},counter:0,theme:'dark',lang:'ar',startPage:1};
-let state;\nlet currentPageAyahs=[];\nlet reciters=[];\nlet audioQueue=[];\nlet audioIndex=0;\nlet isPlaying=false;\nconst audioEl=()=>$('#quranAudio');
+let state;
+let currentPageAyahs=[];
+let reciters=[];
+let audioQueue=[];
+let audioIndex=0;
+let isPlaying=false;
+const audioEl=()=>$('#quranAudio');
 try { state={...defaults,...JSON.parse(localStorage.getItem('zaad-state')||'{}')}; } catch { state={...defaults}; }
 const save=()=>{localStorage.setItem('zaad-state',JSON.stringify(state));renderStats()};
 function todayData(){return state.days[today] ||= {pages:[],habits:{}}}
@@ -62,5 +68,7 @@ $('#playWird').onclick=async()=>{
 audioEl().addEventListener('ended',()=>{if(isPlaying){audioIndex++;playCurrentAyah()}});
 audioEl().addEventListener('pause',()=>{if(isPlaying&&audioEl().ended===false){isPlaying=false;$('#playWird').textContent='▶ استكمل الاستماع'}});
 $('#reciterSelect').addEventListener('change',()=>{audioEl().pause();audioQueue=[];audioIndex=0;isPlaying=false;$('#playWird').textContent='▶ استمع للورد';$('#audioStatus').textContent='تم اختيار القارئ. اضغط استمع للورد.'});
-\nloadReciters();\nloadZaadEngine();
+
+loadReciters();
+loadZaadEngine();
 $('#todayDate').textContent=new Intl.DateTimeFormat(state.lang==='ar'?'ar-EG':'en',{dateStyle:'full'}).format(new Date());$('#counter').textContent=state.counter;setLang(state.lang);renderHabits();renderStats();renderPages();
