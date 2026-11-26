@@ -1,5 +1,6 @@
 import { translations, habits } from './data.js';
 import { getStreak } from './progress.js';
+import { loadZaadEngine, clampCounter } from './zaad-engine.js';
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const today=new Date().toISOString().slice(0,10);
 const defaults={days:{},counter:0,theme:'dark',lang:'ar',startPage:1};
@@ -16,7 +17,8 @@ function showTab(id){$$('.panel').forEach(p=>p.classList.toggle('active',p.id===
 $$('[data-tab]').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));$$('[data-go]').forEach(b=>b.onclick=()=>showTab(b.dataset.go));
 $('#langBtn').onclick=()=>{setLang(state.lang==='ar'?'en':'ar');renderHabits()};$('#themeBtn').onclick=()=>{document.body.classList.toggle('light');state.theme=document.body.classList.contains('light')?'light':'dark';save()};
 if(state.theme==='light')document.body.classList.add('light');
-$('#plusCount').onclick=()=>{state.counter++;$('#counter').textContent=state.counter;save()};$('#minusCount').onclick=()=>{state.counter=Math.max(0,state.counter-1);$('#counter').textContent=state.counter;save()};$('#resetCount').onclick=()=>{state.counter=0;$('#counter').textContent=0;save()};
+$('#plusCount').onclick=()=>{state.counter=clampCounter(state.counter+1);$('#counter').textContent=state.counter;save()};$('#minusCount').onclick=()=>{state.counter=clampCounter(state.counter-1);$('#counter').textContent=state.counter;save()};$('#resetCount').onclick=()=>{state.counter=0;$('#counter').textContent=0;save()};
 $('#exportBtn').onclick=()=>{const a=document.createElement('a'),blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});a.href=URL.createObjectURL(blob);a.download='zaad-backup.json';a.click();URL.revokeObjectURL(a.href)};
 $('#importFile').onchange=async e=>{try{const data=JSON.parse(await e.target.files[0].text());if(!data.days||typeof data.days!=='object')throw Error();state={...defaults,...data};save();renderHabits();renderPages();alert('تم استيراد النسخة بنجاح')}catch{alert('ملف النسخة غير صالح')}};
+loadZaadEngine();
 $('#todayDate').textContent=new Intl.DateTimeFormat(state.lang==='ar'?'ar-EG':'en',{dateStyle:'full'}).format(new Date());$('#counter').textContent=state.counter;setLang(state.lang);renderHabits();renderStats();renderPages();
