@@ -64,29 +64,21 @@ async function playCurrentAyah(){
   }
   const ayah=audioQueue[audioIndex], reciter=$('#reciterSelect').value||'1', player=audioEl();
   const surah=ayah.surah?.number, ayahNo=ayah.numberInSurah;
-  $('#audioStatus').textContent='جاري تجهيز الآية '+(audioIndex+1)+' من '+audioQueue.length;
+  const folder=EVERYAYAH_FOLDERS[reciter]||EVERYAYAH_FOLDERS['1'];
+  const surahPad=String(surah).padStart(3,'0'), ayahPad=String(ayahNo).padStart(3,'0');
+  // Set a direct MP3 URL immediately so playback remains within the user's click gesture.
+  player.dataset.fallbackUrl='https://the-quran-project.github.io/Quran-Audio/Data/'+reciter+'/'+surah+'_'+ayahNo+'.mp3';
   player.dataset.fallback='0';
-  try{
-    const response=await fetch('https://quranapi.pages.dev/api/audio/'+surah+'/'+ayahNo+'.json');
-    if(!response.ok)throw Error('audio API');
-    const json=await response.json(), item=json[reciter];
-    if(!item?.url)throw Error('missing audio');
-    player.dataset.fallbackUrl=item.originalUrl||'';
-    player.src=item.url;
-  }catch{
-    const folder=EVERYAYAH_FOLDERS[reciter]||EVERYAYAH_FOLDERS['1'];
-    player.dataset.fallbackUrl='https://everyayah.com/data/'+folder+'/'+String(surah).padStart(3,'0')+String(ayahNo).padStart(3,'0')+'.mp3';
-    player.src=player.dataset.fallbackUrl;
-  }
+  player.src='https://everyayah.com/data/'+folder+'/'+surahPad+ayahPad+'.mp3';
+  $('#audioStatus').textContent='جاري تشغيل الآية '+(audioIndex+1)+' من '+audioQueue.length;
   try{
     await player.play();
     isPlaying=true;
     $('#playWird').textContent='Ⅱ إيقاف مؤقت';
-    $('#audioStatus').textContent='يتم تشغيل الآية '+(audioIndex+1)+' من '+audioQueue.length;
   }catch(error){
     isPlaying=false;
     $('#playWird').textContent='▶ استمع للورد';
-    $('#audioStatus').textContent='المصدر الصوتي لم يستجب. جرّب تشغيل زر الصوت نفسه أو قارئًا آخر.';
+    $('#audioStatus').textContent='لم يبدأ الصوت تلقائيًا. استخدم زر التشغيل داخل مشغل الصوت.';
   }
 }
 $('#playWird').onclick=async()=>{
