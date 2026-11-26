@@ -1,0 +1,1 @@
+export function getStreak(days){let n=0,d=new Date();for(;;){const key=d.toISOString().slice(0,10),v=days[key];if(!v||(!v.pages?.length&&!Object.values(v.habits||{}).some(Boolean)))break;n++;d.setUTCDate(d.getUTCDate()-1)}return n}
