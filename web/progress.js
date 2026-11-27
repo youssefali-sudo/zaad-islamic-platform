@@ -8,7 +8,12 @@ export function getStreak(days){
   cursor.setHours(0,0,0,0);
   for(;;){
     const item=days[keyFor(cursor)];
-    if(!item || (!(item.pages||[]).length && !Object.values(item.habits||{}).some(Boolean))) break;
+    const hasActivity=item && (
+      (item.pages||[]).length ||
+      (item.prayers||[]).length ||
+      Object.values(item.habits||{}).some(Boolean)
+    );
+    if(!hasActivity) break;
     streak++;
     cursor.setDate(cursor.getDate()-1);
   }
