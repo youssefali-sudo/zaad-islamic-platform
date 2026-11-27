@@ -25,3 +25,11 @@ body:not(.light) .featured{background:linear-gradient(145deg,#3b5140,#2b3930)}
 body:not(.light) .page-button.done{background:#38533e;border-color:#829c7b;color:#eff5e9}
 body:not(.light) .library-card a{color:#d1c18f}
 body:not(.light) .dhikr-text{color:#e1e9dc}
+
+.reader-toolbar,.reader-search,.library-search,.reader-tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:14px 0}
+.reader-toolbar label{display:flex;gap:8px;align-items:center}
+.reader-toolbar input,.reader-toolbar select,.reader-search input,.library-search input,.library-search select,#readerNote{background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit}
+.reader-search input,.library-search input{flex:1;min-width:180px}
+.search-results,.reader-personal{margin:14px 0;padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.search-result{padding:12px;border-bottom:1px solid var(--line)}.search-result p{font-family:Amiri,serif;font-size:1.3rem}.search-result small{color:var(--muted)}
+.library-original-links{border-top:1px solid var(--line);margin-top:20px;padding-top:14px}.library-card small{color:var(--muted)}
