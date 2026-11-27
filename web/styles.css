@@ -17,3 +17,11 @@ body.light{--bg:#d9dcdf;--surface:#f0f1ef;--surface2:#e5e8e4;--text:#222a27;--mu
 .dhikr-card{text-align:center;max-width:720px;margin:12px auto 22px}.dhikr-text{font-family:Amiri,serif;font-size:clamp(1.8rem,5vw,2.7rem);line-height:1.8;color:#314c37}.dhikr-counter{display:flex;align-items:center;justify-content:center;gap:22px;margin:20px}.dhikr-counter strong{font-size:2.7rem;min-width:70px;color:#8d7848}.row-actions{display:flex;justify-content:center;gap:24px}.prayer-list{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:20px 0}.prayer-item{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;text-align:center}.prayer-item label{display:grid;gap:8px;justify-items:center}.prayer-item input{width:22px;height:22px;accent-color:#607c60}.wird-progress{margin:12px 0;color:var(--muted);font-size:.9rem}.next-wird{margin:0 0 16px}.next-wird[hidden]{display:none}
 @media(max-width:760px){.library-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.prayer-list{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:480px){.library-grid{grid-template-columns:1fr}.library-card p{min-height:unset}}
+
+body:not(.light){--bg:#202a27;--surface:#2b3631;--surface2:#35443a;--text:#edf0e9;--muted:#b6c0b6;--line:#4b5b4d;--gold:#d0b875;--green:#8da58a;--shadow:0 16px 42px #0003;background:linear-gradient(180deg,#252e2b 0%,#202a27 60%,#29372d 100%)}
+body:not(.light) .hero{background:linear-gradient(120deg,#303c37,#29362f 55%,#344437);color:var(--text)}
+body:not(.light) .hero p:not(.eyebrow){color:#c4cec4}
+body:not(.light) .featured{background:linear-gradient(145deg,#3b5140,#2b3930)}
+body:not(.light) .page-button.done{background:#38533e;border-color:#829c7b;color:#eff5e9}
+body:not(.light) .library-card a{color:#d1c18f}
+body:not(.light) .dhikr-text{color:#e1e9dc}
