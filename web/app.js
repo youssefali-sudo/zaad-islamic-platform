@@ -7,6 +7,7 @@ const today=new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().
 const defaults={days:{},counter:0,theme:'light',lang:'ar',nextPage:1};
 let state;
 let currentPageAyahs=[];
+let currentPageNumber=1;
 let reciters=[];
 let audioQueue=[];
 let audioIndex=0;
@@ -21,7 +22,7 @@ function currentWirdPages(){const base=todayData().wirdStart||1;return Array.fro
 function wirdComplete(){return currentWirdPages().every(n=>todayData().pages.includes(n))}
 function renderPages(){const pages=currentWirdPages();$('#pageList').innerHTML=pages.map(n=>'<button class="page-button '+(todayData().pages.includes(n)?'done':'')+'" data-page="'+n+'">صفحة '+n+'</button>').join('');$('[data-page]').forEach(b=>b.onclick=()=>loadPage(Number(b.dataset.page)));const done=pages.filter(n=>todayData().pages.includes(n)).length;$('#wirdProgress').textContent='أنجزت '+done+' من 6 صفحات في هذا الورد.';$('#nextWird').hidden=!wirdComplete();}
 $('#nextWird').onclick=()=>{if(!wirdComplete())return;const nextStart=((Number(todayData().wirdStart||state.nextPage||1)+5)%604)+1;todayData().wirdStart=nextStart;state.nextPage=nextStart;currentPageAyahs=[];resetPlayer('بدأ الورد التالي. يتم تحميل أول صفحة الآن…');save();renderPages();loadPage(nextStart);};
-async function loadPage(n){resetPlayer('تم إيقاف التلاوة عند تغيير الصفحة.');$('#quranText').textContent='جارٍ تحميل الصفحة…';try{const r=await fetch('https://api.alquran.cloud/v1/page/'+n+'/quran-uthmani');if(!r.ok)throw Error('network');const j=await r.json();currentPageAyahs=j.data.ayahs;$('#quranText').innerHTML='<div class="ayahs"></div><button id="markPage" class="primary" type="button">علّمت الصفحة كمكتملة</button>';$('#quranText .ayahs').textContent=currentPageAyahs.map(a=>a.text+' ۞').join(' ');$('#markPage').onclick=()=>{todayData().pages=[...new Set([...todayData().pages,n])];save();renderPages();$('#markPage').textContent='تم تسجيل الصفحة ✓';$('#markPage').disabled=true};if(todayData().pages.includes(n)){$('#markPage').textContent='تم تسجيل الصفحة ✓';$('#markPage').disabled=true}$('#audioStatus').textContent='الورد جاهز للاستماع بصوت القارئ المحدد.'}catch{$('#quranText').textContent='تعذر تحميل النص الآن. تحقق من اتصال الإنترنت ثم حاول مرة أخرى.'}}
+async function loadPage(n){currentPageNumber=n;resetPlayer('تم إيقاف التلاوة عند تغيير الصفحة.');$('#quranText').textContent='جارٍ تحميل الصفحة…';try{const r=await fetch('https://api.alquran.cloud/v1/page/'+n+'/quran-uthmani');if(!r.ok)throw Error('network');const j=await r.json();currentPageAyahs=j.data.ayahs;$('#quranText').innerHTML='<div class="ayahs"></div><button id="markPage" class="primary" type="button">علّمت الصفحة كمكتملة</button>';$('#quranText .ayahs').textContent=currentPageAyahs.map(a=>a.text+' ۞').join(' ');$('#markPage').onclick=()=>{todayData().pages=[...new Set([...todayData().pages,n])];save();renderPages();$('#markPage').textContent='تم تسجيل الصفحة ✓';$('#markPage').disabled=true};if(todayData().pages.includes(n)){$('#markPage').textContent='تم تسجيل الصفحة ✓';$('#markPage').disabled=true}$('#audioStatus').textContent='الورد جاهز للاستماع بصوت القارئ المحدد.'}catch{$('#quranText').textContent='تعذر تحميل النص الآن. تحقق من اتصال الإنترنت ثم حاول مرة أخرى.'}}
 function renderHabits(){const lang=state.lang;$('#habitCards').innerHTML=habits.map(h=>'<article class="habit-card"><h3>'+h.title[lang]+'</h3><p>'+h.desc[lang]+'</p>'+h.steps[lang].map((s,i)=>'<label><input type="checkbox" data-habit="'+h.id+'" data-step="'+i+'" '+(todayData().habits[h.id+'-'+i]?'checked':'')+'><span>'+s+'</span></label>').join('')+'</article>').join('');$$('[data-habit]').forEach(c=>c.onchange=()=>{todayData().habits[c.dataset.habit+'-'+c.dataset.step]=c.checked;save()})}
 function showTab(id){$('.panel').forEach(p=>p.classList.toggle('active',p.id===id));$('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===id));if(id==='quran')renderPages();if(id==='prayer')renderPrayerChecklist()}
 $$('[data-tab]').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));$$('[data-go]').forEach(b=>b.onclick=()=>showTab(b.dataset.go));
@@ -186,6 +187,29 @@ function renderLibrary(){
 $('#librarySearch')?.addEventListener('input',renderLibrary);
 $('#libraryCategory')?.addEventListener('change',renderLibrary);
 renderLibrary();
+async function loadTafsirEditions(){
+ const select=$('#tafsirEdition');if(!select)return;
+ try{
+  const res=await fetch('https://api.alquran.cloud/v1/edition/type/tafsir');if(!res.ok)throw Error('edition-list');
+  const data=(await res.json()).data||[];
+  const arabic=data.filter(e=>e.language==='ar'&&e.format==='text');
+  select.innerHTML=arabic.map(e=>'<option value="'+e.identifier+'">'+e.name+'</option>').join('');
+  if(!arabic.length)select.innerHTML='<option value="">لا تتوفر تفاسير عربية حاليًا</option>';
+ }catch{select.innerHTML='<option value="">تعذر تحميل قائمة التفاسير</option>';}
+}
+$('#loadTafsir')?.addEventListener('click',async()=>{
+ const edition=$('#tafsirEdition')?.value;if(!edition){$('#tafsirText').textContent='اختر تفسيرًا عربيًا أولًا.';return;}
+ if(!currentPageAyahs.length){$('#tafsirText').textContent='افتح صفحة من المصحف أولًا.';return;}
+ $('#tafsirText').textContent='جارٍ تحميل التفسير…';
+ try{
+  const res=await fetch('https://api.alquran.cloud/v1/page/'+currentPageNumber+'/'+encodeURIComponent(edition));if(!res.ok)throw Error('tafsir');
+  const data=(await res.json()).data;
+  $('#tafsirText').innerHTML='<h3>تفسير الصفحة '+currentPageNumber+' · '+$('#tafsirEdition').selectedOptions[0].textContent+'</h3>'+data.ayahs.map(a=>'<article class="tafsir-entry"><b>'+a.surah.name+' · الآية '+a.numberInSurah+'</b><p></p></article>').join('');
+  $('#tafsirText .tafsir-entry p').forEach((p,i)=>p.textContent=data.ayahs[i].text);
+ }catch{$('#tafsirText').textContent='تعذر تحميل التفسير لهذه الصفحة. جرّب تفسيرًا آخر أو أعد المحاولة.';}
+});
+loadTafsirEditions();
+
 $('#readerMode')?.addEventListener('change',()=>{
  const mode=$('#readerMode').value,max=mode==='page'?604:mode==='surah'?114:30;
  $('#readerNumber').max=max;$('#readerNumber').value=1;
@@ -199,7 +223,7 @@ $('#openReader')?.addEventListener('click',async()=>{
  $('#quranText').textContent='جارٍ تحميل النص…';
  try{
   const res=await fetch('https://api.alquran.cloud/v1/'+endpoint);if(!res.ok)throw Error();
-  const data=(await res.json()).data;currentPageAyahs=data.ayahs;
+  const data=(await res.json()).data;currentPageAyahs=data.ayahs;currentPageNumber=data.ayahs[0]?.page||currentPageNumber;
   $('#quranText').innerHTML='<h3>'+(mode==='surah'?data.name:'الجزء '+n)+'</h3><div class="ayahs"></div>';
   $('#quranText .ayahs').textContent=data.ayahs.map(x=>x.text+' ۞').join(' ');
   $('#audioStatus').textContent='تم تحميل النص. حدد صفحة للمتابعة والاستماع.';
