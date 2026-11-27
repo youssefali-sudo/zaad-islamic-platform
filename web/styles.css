@@ -35,3 +35,138 @@ body:not(.light) .dhikr-text{color:#e1e9dc}
 .library-original-links{border-top:1px solid var(--line);margin-top:20px;padding-top:14px}.library-card small{color:var(--muted)}
 
 .tafsir-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:16px 0}.tafsir-toolbar select{min-width:220px;max-width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--text);font:inherit}.tafsir-results{margin:12px 0}.tafsir-results h3{font-size:1rem;color:var(--gold)}.tafsir-entry{padding:14px 16px;margin:10px 0;border:1px solid var(--line);border-radius:14px;background:var(--surface)}.tafsir-entry b{color:var(--gold)}.tafsir-entry p{margin:8px 0 0;line-height:1.9;color:var(--text)}
+
+/* ZAAD — Midnight Emerald visual identity */
+:root{
+ --bg:#080d0c;--surface:#111a17;--surface2:#19251f;--text:#f1f0e8;
+ --muted:#a2b0a6;--gold:#d5b66f;--green:#6eaa85;--line:#2b3b32;
+ --shadow:0 22px 65px #0008;
+}
+html{scroll-behavior:smooth}
+body,body:not(.light){
+ background:
+  radial-gradient(ellipse at 12% 0%,#183b2b66 0,transparent 34%),
+  radial-gradient(ellipse at 95% 30%,#1c332b44 0,transparent 30%),
+  #080d0c;
+ color:var(--text);
+}
+.topbar{
+ position:sticky;top:0;z-index:30;width:100%;padding:0 max(4%,calc((100% - 1160px)/2));
+ height:76px;background:#090f0deF;backdrop-filter:blur(18px);
+ border-bottom:1px solid #d5b66f20;
+}
+.brand{gap:13px}.brand b{font-size:1.5rem;letter-spacing:.02em}
+.brand small{letter-spacing:.12em;color:#aeb9ad}
+.brand-mark{width:46px;height:46px;border-radius:15px;border-color:#b99b58;background:#111b16;box-shadow:0 0 25px #c8a75b20}
+main{width:min(1160px,92%)}
+.hero{
+ position:relative;isolation:isolate;margin:34px 0 22px;padding:clamp(28px,5vw,58px);
+ min-height:320px;border:1px solid #b99b5844;border-radius:30px;
+ background:linear-gradient(115deg,#10251c 0%,#101a16 52%,#1b2b20 100%);
+ box-shadow:0 28px 90px #0007,inset 0 1px #ffffff0a;
+}
+.hero:before{
+ content:"";position:absolute;inset:0;z-index:-1;opacity:.16;pointer-events:none;border-radius:inherit;
+ background-image:repeating-linear-gradient(45deg,transparent 0 22px,#c8ad6b 23px 24px,transparent 25px 46px),
+ repeating-linear-gradient(-45deg,transparent 0 22px,#c8ad6b 23px 24px,transparent 25px 46px);
+ mask-image:linear-gradient(90deg,transparent 10%,#000 100%);
+}
+.hero-copy{max-width:650px}.eyebrow{color:var(--gold);letter-spacing:.08em;font-weight:700}
+.hero h1{font-size:clamp(2.15rem,5vw,3.7rem);letter-spacing:-.035em;line-height:1.22}
+.hero p:not(.eyebrow){color:#bdc9bf;font-size:1.03rem;line-height:2}
+.hero-art{width:220px;height:220px;border:1px solid #d5b66f88;color:#d5b66f;background:radial-gradient(circle,#c9a75b17,transparent 68%);box-shadow:inset 0 0 70px #d5b66f12,0 0 65px #d5b66f13}
+.hero-art:before,.hero-art:after{color:#f0d99d}
+.primary{background:linear-gradient(135deg,#d9bd7a,#b7954e);color:#151a14;border:1px solid #f0dba6;padding:12px 22px;border-radius:13px;box-shadow:0 8px 24px #c6a45b20;transition:transform .2s,filter .2s}
+.primary:hover{transform:translateY(-2px);filter:brightness(1.08)}
+.secondary,.ghost{background:#17231d;color:#e9e8df;border:1px solid #34483a;border-radius:12px;transition:.2s}
+.secondary:hover,.ghost:hover{border-color:#b99b58;color:#e3c77f}
+.privacy,.muted{color:#a6b4aa}
+.stats{gap:14px;margin:22px 0 28px}
+.stats article,.feature-card,.learn-grid article,.tool-card,.habit-card,.library-card,.dhikr-card,.prayer-item{
+ background:linear-gradient(145deg,#151f1a,#101713);border:1px solid #2b3b32;
+ border-radius:19px;box-shadow:0 12px 34px #0003;
+}
+.stats article{padding:18px 12px;position:relative;overflow:hidden}
+.stats article:after{content:"";position:absolute;inset:auto 20% 0;height:1px;background:linear-gradient(90deg,transparent,#c6a45b88,transparent)}
+.stats strong{color:#ddc27f;font-size:2rem}
+.stats span{color:#aab7ad}
+.tabs{
+ position:sticky;top:76px;z-index:20;gap:6px;padding:12px 10px;margin:0 -10px 8px;
+ background:#090f0deF;backdrop-filter:blur(18px);border-bottom:1px solid #d5b66f22;
+ scrollbar-width:thin;
+}
+.tab{padding:10px 17px;border:1px solid transparent;border-radius:12px;color:#aeb9b0;transition:.2s}
+.tab:hover{color:#f0d58f;background:#17231c}
+.tab.active{color:#e6ca83;background:#202c22;border-color:#6d6544;box-shadow:inset 0 0 18px #d4b56a0b}
+.panel{padding:30px 0 38px;animation:zaadIn .35s ease both}
+@keyframes zaadIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+.section-head{margin-bottom:22px}.section-head h2{font-size:1.8rem;letter-spacing:-.02em}
+.feature-grid{gap:16px}
+.feature-card,.learn-grid article,.tool-card{padding:22px;transition:transform .22s,border-color .22s,box-shadow .22s}
+.feature-card:hover,.learn-grid article:hover,.library-card:hover{transform:translateY(-3px);border-color:#8b7849;box-shadow:0 18px 45px #0005}
+.feature-card h3,.learn-grid h3{font-size:1.12rem}
+.feature-card p,.learn-grid p{line-height:1.9;color:#aebbb1}
+.featured{background:linear-gradient(145deg,#1a3828,#111d17);border-color:#62764e}
+.card-icon{display:inline-grid;place-items:center;width:48px;height:48px;border:1px solid #b99b584c;border-radius:15px;background:#d5b66f0d}
+.quote-card{background:linear-gradient(110deg,#17251d,#111a15);border:1px solid #344638;border-radius:20px;padding:22px 26px}
+.quote-card>span{color:var(--gold)}
+.quote-card p{color:#f1e9d2;font-size:1.45rem;line-height:2}
+a{color:#dfc27a}
+.pill{background:#252a20;color:#e0c77e;border:1px solid #756443}
+.page-list{gap:10px}
+.page-button{background:#111a16;border:1px solid #34463a;border-radius:12px;color:#e5e8df;transition:.2s}
+.page-button:hover{border-color:#c4a75f}
+.page-button.done{background:#1b3928;border-color:#6eaa85;color:#d9f1df}
+.quran-text{background:linear-gradient(145deg,#111a16,#0d1411);border:1px solid #4b503a;border-radius:20px;padding:clamp(20px,4vw,38px);color:#f1ead8;font-size:clamp(1.55rem,3vw,2rem);line-height:2.35;box-shadow:inset 0 0 45px #c8a75b08}
+.reader-toolbar input,.reader-toolbar select,.reader-search input,.library-search input,.library-search select,#readerNote,.tafsir-toolbar select{
+ background:#101914;color:#edf0e8;border:1px solid #34483a;border-radius:12px;padding:11px 13px
+}
+.reader-search input:focus,.library-search input:focus,.reader-toolbar input:focus,#readerNote:focus{outline:2px solid #c5a85f66;border-color:#c5a85f}
+.search-results,.reader-personal{background:#111a16;border:1px solid #2d4034;border-radius:17px}
+.library-grid{gap:16px}
+.library-card,.dhikr-card{background:linear-gradient(145deg,#17221b,#101713);border:1px solid #2d4034;border-radius:19px;box-shadow:0 14px 35px #0004;transition:.22s}
+.library-card{padding:22px}
+.library-card>span{display:inline-grid;place-items:center;width:44px;height:44px;border-radius:14px;background:#d5b66f12;color:#d5b66f}
+.library-card h3{color:#f0ecdf}.library-card p{color:#aeb9af;line-height:1.9}
+.library-card a{color:#ddc27f}
+.dhikr-card{padding:28px}.dhikr-text{color:#f0e6ca}
+.dhikr-counter strong{color:#e0c27a}
+.prayer-item{background:#131e18;border-radius:16px}
+.prayer-item input,.habit-card input{accent-color:#c7a85f}
+.habit-card label{border-bottom:1px solid #29392f}
+.recitation-box{background:#121c16;border:1px solid #394b3b;border-radius:18px}
+.recitation-head label{color:#e0c27a}
+.recitation-head select{background:#0d1511;color:#eee;border:1px solid #3a4a3d}
+.tafsir-entry{background:#111a16;border-color:#334438}
+.tafsir-entry p{color:#d7ded4}
+.source-note{color:#9ba99e}
+footer{border-top-color:#2c3c32;color:#9ca99f}
+footer span{color:#d7bb76}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #d8ba72;outline-offset:3px}
+body.light{--bg:#f4f2e9;--surface:#fff;--surface2:#eceee7;--text:#1d2b22;--muted:#65746a;--gold:#94783e;--green:#547b5c;--line:#d8dfd5;--shadow:0 16px 42px #26352b18;background:#f4f2e9;color:#1d2b22}
+body.light .topbar,body.light .tabs{background:#f7f5edee;border-color:#d7d1bc}
+body.light .hero{background:linear-gradient(120deg,#e5e8dc,#f1eee3 55%,#dce6dc);color:#243328}
+body.light .hero p:not(.eyebrow){color:#5b6b5e}
+body.light .stats article,body.light .feature-card,body.light .learn-grid article,body.light .tool-card,body.light .habit-card,body.light .library-card,body.light .dhikr-card,body.light .prayer-item{background:#fff;border-color:#d9dfd5}
+body.light .tab{color:#647268}body.light .tab.active{background:#e8eddf;color:#5c663f;border-color:#c9c9a8}
+body.light .quran-text,body.light .search-results,body.light .reader-personal,body.light .tafsir-entry{background:#fff;color:#26362a;border-color:#d9dfd5}
+body.light .quran-text{color:#283a2c}
+body.light .reader-toolbar input,body.light .reader-toolbar select,body.light .reader-search input,body.light .library-search input,body.light .library-search select,body.light #readerNote,body.light .tafsir-toolbar select{background:#fff;color:#25362b;border-color:#d5ddd2}
+body.light .secondary,body.light .ghost{background:#e9eee6;color:#304334;border-color:#d0d9ce}
+body.light .quote-card{background:#e9eee4;border-color:#d1dacd}
+body.light .quote-card p{color:#304334}
+body.light .library-card h3{color:#26372b}
+body.light .library-card p,body.light .tafsir-entry p{color:#586b5d}
+@media(max-width:760px){
+ .topbar{height:68px;padding:0 4%}.tabs{top:68px}
+ .hero{min-height:unset;padding:28px 24px;border-radius:22px}
+ .hero-art{width:135px;height:135px;font-size:3.5rem}
+ .feature-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .stats{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .stats article{padding:13px 6px}
+}
+@media(max-width:520px){
+ .hero-art{display:none}.feature-grid{grid-template-columns:1fr}
+ .section-head h2{font-size:1.45rem}.tabs{margin-inline:-4%;padding-inline:4%}
+ .panel{padding-top:23px}
+}
