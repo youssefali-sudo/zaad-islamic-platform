@@ -1,260 +1,68 @@
-import { translations, habits } from './data.js';
+import { habits } from './data.js';
 import { getStreak } from './progress.js';
-import { loadZaadEngine, clampCounter } from './zaad-engine.js';
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
-const now=new Date();
-const today=new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,10);
-const defaults={days:{},counter:0,theme:'light',lang:'ar',nextPage:1};
+const localDate=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-')};
+const today=localDate();
+const defaults={days:{},counter:0,theme:'dark',lang:'ar',nextPage:1,dhikrCount:0};
 let state;
-let currentPageAyahs=[];
-let currentPageNumber=1;
-let reciters=[];
-let audioQueue=[];
-let audioIndex=0;
-let isPlaying=false;
-const audioEl=()=>$('#quranAudio');
-try { state={...defaults,...JSON.parse(localStorage.getItem('zaad-state')||'{}')}; } catch { state={...defaults}; }
-const save=()=>{localStorage.setItem('zaad-state',JSON.stringify(state));renderStats()};
-function todayData(){return state.days[today] ||= {pages:[],habits:{},wirdStart:state.nextPage||1}}
-function renderStats(){const d=todayData();$('#pagesDone').textContent=d.pages.length;$('#streak').textContent=getStreak(state.days);$('#habitsDone').textContent=Object.values(d.habits).filter(Boolean).length}
-function setLang(lang){state.lang=lang;document.documentElement.lang=lang;document.documentElement.dir=lang==='ar'?'rtl':'ltr';$$('[data-i18n]').forEach(el=>{const k=el.dataset.i18n;if(translations[lang][k])el.textContent=translations[lang][k]});$('#langBtn').textContent=lang==='ar'?'EN':'عربي';save()}
-function currentWirdPages(){const base=todayData().wirdStart||1;return Array.from({length:6},(_,i)=>((base+i-1)%604)+1)}
-function wirdComplete(){return currentWirdPages().every(n=>todayData().pages.includes(n))}
-function renderPages(){const pages=currentWirdPages();$('#pageList').innerHTML=pages.map(n=>'<button class="page-button '+(todayData().pages.includes(n)?'done':'')+'" data-page="'+n+'">صفحة '+n+'</button>').join('');$$('[data-page]').forEach(b=>b.onclick=()=>loadPage(Number(b.dataset.page)));const done=pages.filter(n=>todayData().pages.includes(n)).length;$('#wirdProgress').textContent='أنجزت '+done+' من 6 صفحات في هذا الورد.';$('#nextWird').hidden=!wirdComplete();}
-$('#nextWird').onclick=()=>{if(!wirdComplete())return;const nextStart=((Number(todayData().wirdStart||state.nextPage||1)+5)%604)+1;todayData().wirdStart=nextStart;state.nextPage=nextStart;currentPageAyahs=[];resetPlayer('بدأ الورد التالي. يتم تحميل أول صفحة الآن…');save();renderPages();loadPage(nextStart);};
-async function loadPage(n){currentPageNumber=n;resetPlayer('تم إيقاف التلاوة عند تغيير الصفحة.');$('#quranText').textContent='جارٍ تحميل الصفحة…';try{const r=await fetch('https://api.alquran.cloud/v1/page/'+n+'/quran-uthmani');if(!r.ok)throw Error('network');const j=await r.json();currentPageAyahs=j.data.ayahs;$('#quranText').innerHTML='<div class="ayahs"></div><button id="markPage" class="primary" type="button">علّمت الصفحة كمكتملة</button>';$('#quranText .ayahs').textContent=currentPageAyahs.map(a=>a.text+' ۞').join(' ');$('#markPage').onclick=()=>{todayData().pages=[...new Set([...todayData().pages,n])];save();renderPages();$('#markPage').textContent='تم تسجيل الصفحة ✓';$('#markPage').disabled=true};if(todayData().pages.includes(n)){$('#markPage').textContent='تم تسجيل الصفحة ✓';$('#markPage').disabled=true}$('#audioStatus').textContent='الورد جاهز للاستماع بصوت القارئ المحدد.'}catch{$('#quranText').textContent='تعذر تحميل النص الآن. تحقق من اتصال الإنترنت ثم حاول مرة أخرى.'}}
-function renderHabits(){const lang=state.lang;$('#habitCards').innerHTML=habits.map(h=>'<article class="habit-card"><h3>'+h.title[lang]+'</h3><p>'+h.desc[lang]+'</p>'+h.steps[lang].map((s,i)=>'<label><input type="checkbox" data-habit="'+h.id+'" data-step="'+i+'" '+(todayData().habits[h.id+'-'+i]?'checked':'')+'><span>'+s+'</span></label>').join('')+'</article>').join('');$$('[data-habit]').forEach(c=>c.onchange=()=>{todayData().habits[c.dataset.habit+'-'+c.dataset.step]=c.checked;save()})}
-function showTab(id){$$('.panel').forEach(p=>p.classList.toggle('active',p.id===id));$$('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===id));if(id==='quran'){renderPages();if(!currentPageAyahs.length)loadPage(currentWirdPages()[0]);}if(id==='prayer')renderPrayerChecklist()}
-$$('[data-tab]').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));$$('[data-go]').forEach(b=>b.onclick=()=>showTab(b.dataset.go));
-$('#langBtn').onclick=()=>{setLang(state.lang==='ar'?'en':'ar');renderHabits()};$('#themeBtn').onclick=()=>{document.body.classList.toggle('light');state.theme=document.body.classList.contains('light')?'light':'dark';save()};
-if(state.theme==='light')document.body.classList.add('light');
-$('#plusCount').onclick=()=>{state.counter=clampCounter(state.counter+1);$('#counter').textContent=state.counter;save()};$('#minusCount').onclick=()=>{state.counter=clampCounter(state.counter-1);$('#counter').textContent=state.counter;save()};$('#resetCount').onclick=()=>{state.counter=0;$('#counter').textContent=0;save()};
-$('#exportBtn').onclick=()=>{const a=document.createElement('a'),blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});a.href=URL.createObjectURL(blob);a.download='zaad-backup.json';a.click();URL.revokeObjectURL(a.href)};
-$('#importFile').onchange=async e=>{try{const data=JSON.parse(await e.target.files[0].text());if(!data.days||typeof data.days!=='object')throw Error();state={...defaults,...data};save();renderHabits();renderPages();alert('تم استيراد النسخة بنجاح')}catch{alert('ملف النسخة غير صالح')}};
-
-const RECITERS=[
-  ['1','مشاري العفاسي'],
-  ['2','أبو بكر الشاطري'],
-  ['3','ناصر القطامي'],
-  ['4','ياسر الدوسري'],
-  ['5','هاني الرفاعي']
-];
-const EVERYAYAH_FOLDERS={
-  '1':'Alafasy_128kbps',
-  '2':'Abu_Bakr_Ash-Shaatree_128kbps',
-  '3':'Nasser_Alqatami_128kbps',
-  '4':'Yasser_Ad-Dussary_128kbps',
-  '5':'Hani_Rifai_192kbps'
-};
-function loadReciters(){
-  const select=$('#reciterSelect');
-  select.innerHTML=RECITERS.map(([id,name])=>'<option value="'+id+'">'+name+'</option>').join('');
-  select.value='1';
-  $('#audioStatus').textContent='اختر القارئ ثم اضغط استمع. الصوت من مصادر بديلة.';
-}
-function resetPlayer(message='اختر صفحة من الورد ثم اضغط استمع.'){
-  audioEl().pause();
-  audioEl().removeAttribute('src');
-  audioEl().load();
-  audioQueue=[];audioIndex=0;isPlaying=false;
-  $('#playWird').textContent='▶ استمع للورد';
-  $('#audioStatus').textContent=message;
-}
-async function playCurrentAyah(){
-  if(audioIndex>=audioQueue.length){
-    isPlaying=false;
-    $('#playWird').textContent='▶ استمع للورد';
-    $('#audioStatus').textContent='انتهى ورد الصفحة. تقبّل الله منك.';
-    return;
-  }
-  const ayah=audioQueue[audioIndex], reciter=$('#reciterSelect').value||'1', player=audioEl();
-  const surah=ayah.surah?.number, ayahNo=ayah.numberInSurah;
-  const folder=EVERYAYAH_FOLDERS[reciter]||EVERYAYAH_FOLDERS['1'];
-  const surahPad=String(surah).padStart(3,'0'), ayahPad=String(ayahNo).padStart(3,'0');
-  const primaryUrl='https://everyayah.com/data/'+folder+'/'+surahPad+ayahPad+'.mp3';
-  const backupUrl='https://the-quran-project.github.io/Quran-Audio/Data/'+reciter+'/'+surah+'_'+ayahNo+'.mp3';
-  $('#audioStatus').textContent='جارٍ تجهيز الآية '+(audioIndex+1)+' من '+audioQueue.length+'…';
-  const trySource=async(url)=>{
-    player.pause();
-    player.src=url;
-    player.load();
-    await player.play();
-  };
-  try{
-    try {
-      await trySource(primaryUrl);
-    } catch(firstError) {
-      $('#audioStatus').textContent='نجرب مصدرًا صوتيًا بديلًا…';
-      await trySource(backupUrl);
-    }
-    isPlaying=true;
-    $('#playWird').textContent='Ⅱ إيقاف مؤقت';
-    $('#audioStatus').textContent='يتم تشغيل الآية '+(audioIndex+1)+' من '+audioQueue.length;
-  }catch(error){
-    isPlaying=false;
-    $('#playWird').textContent='▶ إعادة المحاولة';
-    $('#audioStatus').textContent='تعذر تشغيل الصوت ('+(error?.name||'خطأ')+'). تأكد من اتصال الإنترنت ثم اضغط إعادة المحاولة.';
-  }
-}
-$('#playWird').onclick=async()=>{
-  if(!currentPageAyahs.length){
-    $('#audioStatus').textContent='اختر صفحة من صفحات الورد أولًا.';
-    return;
-  }
-  const player=audioEl();
-  if(isPlaying){
-    player.pause();
-    isPlaying=false;
-    $('#playWird').textContent='▶ استكمل الاستماع';
-    return;
-  }
-  if(audioQueue.length&&audioIndex<audioQueue.length&&player.src&&player.currentTime>0){
-    try{await player.play();isPlaying=true;$('#playWird').textContent='Ⅱ إيقاف مؤقت';return;}
-    catch{}
-  }
-  if(!audioQueue.length||audioIndex>=audioQueue.length){
-    audioQueue=[...currentPageAyahs];audioIndex=0;
-  }
-  await playCurrentAyah();
-};
-audioEl().addEventListener('play',()=>{
-  isPlaying=true;
-  $('#playWird').textContent='Ⅱ إيقاف مؤقت';
-});
-audioEl().addEventListener('pause',()=>{
-  if(!audioEl().ended){
-    isPlaying=false;
-    $('#playWird').textContent='▶ استكمل الاستماع';
-  }
-});
-audioEl().addEventListener('ended',()=>{
-  if(isPlaying){audioIndex++;playCurrentAyah();}
-});
-audioEl().addEventListener('error',()=>{
-  const player=audioEl();
-  if(!player.src)return;
-  if(player.dataset.fallback!=='1'&&player.dataset.fallbackUrl){
-    player.dataset.fallback='1';
-    player.src=player.dataset.fallbackUrl;
-    player.play().catch(()=>{});
-    return;
-  }
-  isPlaying=false;
-  $('#playWird').textContent='▶ استمع للورد';
-  $('#audioStatus').textContent='فشل المصدران الصوتيان. جرّب الاتصال أو قارئًا آخر.';
-});
-$('#reciterSelect').addEventListener('change',()=>{
-  resetPlayer('تم تغيير القارئ. اضغط استمع للورد لبدء التلاوة.');
-});
-
-loadReciters();
-loadZaadEngine();
-
-const dhikrs=[['سُبْحَانَ اللَّهِ وَبِحَمْدِهِ','صحيح البخاري · 6405'],['لَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللَّهِ','صحيح البخاري · 6384'],['سُبْحَانَ اللَّهِ، وَالْحَمْدُ لِلَّهِ','صحيح مسلم · 2695']];
-let dhikrIndex=0,dhikrCount=0;
-function showDhikr(){if(!$('#dhikrText'))return;$('#dhikrText').textContent=dhikrs[dhikrIndex][0];$('#dhikrSource').textContent=dhikrs[dhikrIndex][1];$('#dhikrCount').textContent=dhikrCount}
-$('#dhikrPlus')?.addEventListener('click',()=>{dhikrCount++;showDhikr()});
-$('#dhikrMinus')?.addEventListener('click',()=>{dhikrCount=Math.max(0,dhikrCount-1);showDhikr()});
-$('#dhikrReset')?.addEventListener('click',()=>{dhikrCount=0;showDhikr()});
-$('#nextDhikr')?.addEventListener('click',()=>{dhikrIndex=(dhikrIndex+1)%dhikrs.length;dhikrCount=0;showDhikr()});
+try{state={...defaults,...JSON.parse(localStorage.getItem('zaad-state')||'{}')};if(!state.days||typeof state.days!=='object')state.days={};}catch{state={...defaults};}
+let currentPageAyahs=[],currentPageNumber=1,audioQueue=[],audioIndex=0,isPlaying=false,audioFallback=false,dhikrIndex=0;
+const audio=$('#quranAudio');
+const safeSave=()=>{try{localStorage.setItem('zaad-state',JSON.stringify(state));}catch{notify('تعذر حفظ التقدم؛ مساحة التخزين قد تكون ممتلئة.')}};
+function todayData(){return state.days[today] ||= {pages:[],habits:{},prayers:[],wirdStart:state.nextPage||1};}
+function notify(msg){const n=$('#toast');if(!n)return;n.textContent=msg;n.classList.add('show');clearTimeout(notify.timer);notify.timer=setTimeout(()=>n.classList.remove('show'),2600);}
+function updateStats(){const d=todayData(),done=currentWirdPages().filter(n=>d.pages.includes(n)).length,habitsDone=Object.values(d.habits||{}).filter(Boolean).length;$('#pagesDone').textContent=d.pages.length;$('#streak').textContent=getStreak(state.days);$('#habitsDone').textContent=habitsDone;$('#pagesBar').style.width=Math.min(100,d.pages.length/6*100)+'%';$('#wirdHomeProgress').textContent=done+' / 6';$('#wirdHomeBar').style.width=done/6*100+'%';$('#todaySummary').textContent=done===6?'أتممت وردك اليوم، تقبّل الله منك.':'خطوة واحدة اليوم تصنع فرقًا.';}
+function currentWirdPages(){const start=Math.min(604,Math.max(1,Number(todayData().wirdStart)||1));return Array.from({length:6},(_,i)=>((start+i-1)%604)+1);}
+function renderWird(){const pages=currentWirdPages(),d=todayData(),done=pages.filter(n=>d.pages.includes(n)).length;$('#wirdProgress').textContent='أنجزت '+done+' من 6 صفحات في هذا الورد.';$('#wirdDots').innerHTML='';$('#pageList').innerHTML='';pages.forEach((n,i)=>{const dot=document.createElement('span');dot.className='wird-dot'+(d.pages.includes(n)?' done':'');dot.textContent=d.pages.includes(n)?'✓':String(i+1);$('#wirdDots').append(dot);const b=document.createElement('button');b.className='page-button'+(n===currentPageNumber?' active':'')+(d.pages.includes(n)?' done':'');b.textContent='صفحة '+n;b.onclick=()=>loadPage(n);$('#pageList').append(b)});$('#nextWird').hidden=done!==6;updateStats();}
+function setTheme(){document.body.classList.toggle('light',state.theme==='light');$('#themeBtn').textContent=state.theme==='light'?'☾':'◐';}
+function showTab(id){const target=$('#'+id);if(!target)return;$$('.panel').forEach(p=>p.classList.toggle('active',p.id===id));$$('[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===id));if(id==='quran'){renderWird();if(!currentPageAyahs.length)loadPage(currentWirdPages()[0]);}if(id==='prayer')renderPrayer();if(id==='learn')renderLessons();if(id==='library')renderLibrary();if(id==='names')renderNames();}
+$$('[data-tab]').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));$$('[data-go]').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.go)));
+$('#themeBtn').onclick=()=>{state.theme=state.theme==='light'?'dark':'light';setTheme();safeSave();};
+$('#langBtn').onclick=()=>notify('الواجهة العربية هي النسخة الكاملة حاليًا، وسيُضاف دعم الإنجليزية بعد استكمال الترجمة.');
+setTheme();
+$('#todayDate').textContent=new Intl.DateTimeFormat('ar-EG',{dateStyle:'full'}).format(new Date());
+const reciters=[['Alafasy_128kbps','مشاري العفاسي'],['Abu_Bakr_Ash-Shaatree_128kbps','أبو بكر الشاطري'],['Nasser_Alqatami_128kbps','ناصر القطامي'],['Yasser_Ad-Dussary_128kbps','ياسر الدوسري'],['Hani_Rifai_192kbps','هاني الرفاعي']];
+$('#reciterSelect').innerHTML=reciters.map((r,i)=>'<option value="'+r[0]+'">'+r[1]+'</option>').join('');
+function resetAudio(message='اختر صفحة ثم ابدأ الاستماع.'){audio.pause();audio.removeAttribute('src');audio.load();audioQueue=[];audioIndex=0;isPlaying=false;audioFallback=false;$('#playWird').textContent='▶ استمع للورد كاملًا';$('#audioStatus').textContent=message;}
+function audioUrl(ayah,folder){const s=String(ayah.surah.number).padStart(3,'0'),a=String(ayah.numberInSurah).padStart(3,'0');return 'https://everyayah.com/data/'+folder+'/'+s+a+'.mp3';}
+function startTrack(){if(audioIndex>=audioQueue.length){isPlaying=false;$('#playWird').textContent='▶ استمع للورد كاملًا';$('#audioStatus').textContent='انتهى الاستماع إلى صفحات الورد الست.';return;}const ayah=audioQueue[audioIndex],folder=$('#reciterSelect').value;audioFallback=false;audio.src=audioUrl(ayah,folder);audio.load();$('#audioStatus').textContent='الآية '+(audioIndex+1)+' من '+audioQueue.length;audio.play().then(()=>{isPlaying=true;$('#playWird').textContent='Ⅱ إيقاف مؤقت';}).catch(()=>{if(!audioFallback){audioFallback=true;const surah=ayah.surah.number;audio.src='https://the-quran-project.github.io/Quran-Audio/Data/1/'+surah+'_'+ayah.numberInSurah+'.mp3';audio.play().then(()=>{isPlaying=true;$('#playWird').textContent='Ⅱ إيقاف مؤقت';}).catch(()=>{isPlaying=false;$('#audioStatus').textContent='تعذر تشغيل هذا المقطع. تحقق من الاتصال أو اختر قارئًا آخر.';$('#playWird').textContent='إعادة المحاولة';});}});}
+async function fetchPage(n){const r=await fetch('https://api.alquran.cloud/v1/page/'+n+'/quran-uthmani');if(!r.ok)throw Error('Quran API');const j=await r.json();if(j.code!==200||!j.data?.ayahs)throw Error('Invalid Quran response');return j.data.ayahs;}
+async function loadPage(n){n=Math.min(604,Math.max(1,Number(n)||1));resetAudio('تم إيقاف التلاوة عند تغيير الصفحة.');currentPageNumber=n;$('#readerLabel').textContent='صفحة المصحف · '+n;$('#quranText').innerHTML='<div class="reader-placeholder"><span>۞</span><p>جارٍ تحميل النص القرآني...</p></div>';$('#markPage').disabled=true;try{currentPageAyahs=await fetchPage(n);const box=document.createElement('div');box.className='ayahs';box.textContent=currentPageAyahs.map(a=>a.text+' ۞').join(' ');$('#quranText').replaceChildren(box);const marked=todayData().pages.includes(n);$('#markPage').disabled=marked;$('#markPage').textContent=marked?'تم تسجيل الصفحة ✓':'علّمت الصفحة كمكتملة';renderWird();}catch{$('#quranText').textContent='تعذر تحميل الصفحة. تحقق من اتصال الإنترنت ثم أعد المحاولة.';notify('تعذر تحميل القرآن من المصدر حاليًا.');}}
+$('#markPage').onclick=()=>{if(!currentPageAyahs.length)return;const d=todayData();d.pages=[...new Set([...(d.pages||[]),currentPageNumber])];safeSave();renderWird();$('#markPage').disabled=true;$('#markPage').textContent='تم تسجيل الصفحة ✓';notify('تم حفظ إنجاز الصفحة على جهازك.');};
+$('#nextWird').onclick=()=>{if(currentWirdPages().some(n=>!todayData().pages.includes(n)))return;const next=((Number(todayData().wirdStart)+6-1)%604)+1;todayData().wirdStart=next;state.nextPage=next;currentPageAyahs=[];safeSave();renderWird();loadPage(next);};
+$('#readerMode').onchange=()=>{$('#readerNumber').value=1;$('#readerNumber').max=$('#readerMode').value==='page'?604:$('#readerMode').value==='surah'?114:30;};
+$('#openReader').onclick=async()=>{const mode=$('#readerMode').value,n=Math.max(1,Number($('#readerNumber').value)||1);if(mode==='page'){loadPage(Math.min(604,n));return;}resetAudio('تم فتح مقطع جديد.');$('#quranText').textContent='جارٍ تحميل النص...';try{const endpoint=mode==='surah'?'surah/'+Math.min(114,n)+'/quran-uthmani':'juz/'+Math.min(30,n)+'/quran-uthmani';const r=await fetch('https://api.alquran.cloud/v1/'+endpoint);if(!r.ok)throw Error();const data=(await r.json()).data;currentPageAyahs=data.ayahs;currentPageNumber=data.ayahs[0]?.page||1;$('#readerLabel').textContent=mode==='surah'?data.name:'الجزء '+n;const box=document.createElement('div');box.className='ayahs';box.textContent=data.ayahs.map(a=>a.text+' ۞').join(' ');$('#quranText').replaceChildren(box);$('#markPage').disabled=true;$('#markPage').textContent='اختر صفحة من الورد لتسجيلها';}catch{$('#quranText').textContent='تعذر تحميل المقطع المطلوب.';}};
+$('#playWird').onclick=async()=>{if(isPlaying){audio.pause();isPlaying=false;$('#playWird').textContent='▶ استكمل الاستماع';return;}if(audioQueue.length&&audioIndex<audioQueue.length&&audio.src){audio.play().then(()=>{isPlaying=true;$('#playWird').textContent='Ⅱ إيقاف مؤقت';}).catch(()=>startTrack());return;}$('#audioStatus').textContent='جارٍ تحميل صفحات الورد الست...';try{const pages=await Promise.all(currentWirdPages().map(fetchPage));audioQueue=pages.flat();audioIndex=0;startTrack();}catch{$('#audioStatus').textContent='تعذر تجهيز الورد الصوتي. أعد المحاولة لاحقًا.';}};
+audio.addEventListener('ended',()=>{audioIndex++;startTrack();});audio.addEventListener('error',()=>{if(!audio.src)return;if(!audioFallback){audioFallback=true;const a=audioQueue[audioIndex];audio.src='https://the-quran-project.github.io/Quran-Audio/Data/1/'+a.surah.number+'_'+a.numberInSurah+'.mp3';audio.play().catch(()=>{$('#audioStatus').textContent='المصدر الصوتي غير متاح لهذا المقطع.';});}else{$('#audioStatus').textContent='المصدر الصوتي غير متاح لهذا المقطع.';isPlaying=false;}});
+$('#reciterSelect').onchange=()=>resetAudio('تم تغيير القارئ. اضغط للاستماع من البداية.');
+$('#quranAudio')?.addEventListener('loadedmetadata',()=>{});
+$('#searchQuran').onclick=async()=>{const q=$('#quranSearch').value.trim();if(!q)return;$('#searchResults').hidden=false;$('#searchResults').textContent='جارٍ البحث...';try{const r=await fetch('https://api.alquran.cloud/v1/search/'+encodeURIComponent(q)+'/all/quran-uthmani');if(!r.ok)throw Error();const matches=(await r.json()).data.matches||[];const wrap=document.createElement('div');matches.slice(0,30).forEach(m=>{const item=document.createElement('article');item.className='search-result';const p=document.createElement('p');p.textContent=m.text;const small=document.createElement('small');small.textContent=m.surah.name+' · الآية '+m.numberInSurah;const b=document.createElement('button');b.className='quiet-btn';b.textContent='افتح الصفحة '+m.page;b.onclick=()=>loadPage(m.page);item.append(p,small,b);wrap.append(item);});$('#searchResults').replaceChildren(wrap);if(!matches.length)$('#searchResults').textContent='لا توجد نتائج مطابقة.';}catch{$('#searchResults').textContent='تعذر البحث الآن. حاول مرة أخرى.';}};
+async function loadTafsirEditions(){const s=$('#tafsirEdition');try{const r=await fetch('https://api.alquran.cloud/v1/edition/type/tafsir');if(!r.ok)throw Error();const all=(await r.json()).data||[],arabic=all.filter(e=>e.language==='ar'&&e.format==='text');s.replaceChildren(...arabic.map(e=>{const o=document.createElement('option');o.value=e.identifier;o.textContent=e.name;return o;}));if(!arabic.length)s.innerHTML='<option value="">لا توجد طبعات عربية متاحة</option>';}catch{s.innerHTML='<option value="">تعذر تحميل قائمة التفاسير</option>';}}
+$('#loadTafsir').onclick=async()=>{const edition=$('#tafsirEdition').value;if(!edition||!currentPageAyahs.length){$('#tafsirText').textContent='افتح صفحة من المصحف واختر تفسيرًا أولًا.';return;}$('#tafsirText').textContent='جارٍ تحميل التفسير...';try{const r=await fetch('https://api.alquran.cloud/v1/page/'+currentPageNumber+'/'+encodeURIComponent(edition));if(!r.ok)throw Error();const data=(await r.json()).data,head=document.createElement('h3');head.textContent='تفسير الصفحة '+currentPageNumber+' · '+$('#tafsirEdition').selectedOptions[0].textContent;const wrap=document.createElement('div');data.ayahs.forEach(a=>{const article=document.createElement('article');article.className='tafsir-entry';const b=document.createElement('b');b.textContent=a.surah.name+' · الآية '+a.numberInSurah;const p=document.createElement('p');p.textContent=a.text;article.append(b,p);wrap.append(article);});$('#tafsirText').replaceChildren(head,wrap);}catch{$('#tafsirText').textContent='تعذر تحميل التفسير لهذه الصفحة. جرّب لاحقًا.';}};
+function readJSON(key,fallback){try{return JSON.parse(localStorage.getItem(key)||JSON.stringify(fallback));}catch{return fallback;}}
+$('#bookmarkAyah').onclick=()=>{if(!currentPageAyahs.length){notify('افتح صفحة أولًا.');return;}const marks=readJSON('zaad-marks',[]);marks.unshift({page:currentPageNumber,surah:currentPageAyahs[0].surah.name,ayah:currentPageAyahs[0].numberInSurah,date:today});localStorage.setItem('zaad-marks',JSON.stringify(marks.slice(0,100)));notify('تم حفظ موضع القراءة.');};
+$('#showBookmarks').onclick=()=>{const box=$('#readerPersonal'),marks=readJSON('zaad-marks',[]);box.replaceChildren();if(!marks.length){box.textContent='لا توجد مواضع محفوظة.';return;}marks.forEach(m=>{const p=document.createElement('p'),b=document.createElement('button');p.textContent=m.surah+' · آية '+m.ayah+' · صفحة '+m.page+' ';b.className='quiet-btn';b.textContent='فتح';b.onclick=()=>loadPage(m.page);p.append(b);box.append(p);});};
+$('#showNotes').onclick=()=>{const box=$('#readerPersonal');box.innerHTML='<textarea id="readerNote" placeholder="اكتب فائدة أو ملاحظة..."></textarea><button id="saveReaderNote" class="btn btn-secondary">حفظ الملاحظة</button><div id="savedReaderNotes"></div>';const notes=readJSON('zaad-notes',[]);const list=$('#savedReaderNotes');notes.forEach(n=>{const p=document.createElement('p');p.textContent=n.date+' — '+n.text;list.append(p);});$('#saveReaderNote').onclick=()=>{const v=$('#readerNote').value.trim();if(!v)return;notes.unshift({date:today,text:v});localStorage.setItem('zaad-notes',JSON.stringify(notes.slice(0,100)));$('#showNotes').click();notify('تم حفظ الملاحظة.');};};
+const dhikrs=[['سُبْحَانَ اللَّهِ وَبِحَمْدِهِ','صحيح البخاري · ٦٤٠٥'],['لَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللَّهِ','صحيح البخاري · ٦٣٨٤'],['سُبْحَانَ اللَّهِ، وَالْحَمْدُ لِلَّهِ','صحيح مسلم · ٢٦٩٥']];
+function showDhikr(){const d=dhikrs[dhikrIndex];$('#dhikrText').textContent=d[0];$('#dhikrSource').textContent=d[1];$('#dhikrCount').textContent=state.dhikrCount||0;}
+$('#dhikrPlus').onclick=()=>{state.dhikrCount=(state.dhikrCount||0)+1;safeSave();showDhikr();};$('#dhikrMinus').onclick=()=>{state.dhikrCount=Math.max(0,(state.dhikrCount||0)-1);safeSave();showDhikr();};$('#dhikrReset').onclick=()=>{state.dhikrCount=0;safeSave();showDhikr();};$('#nextDhikr').onclick=()=>{dhikrIndex=(dhikrIndex+1)%dhikrs.length;state.dhikrCount=0;safeSave();showDhikr();};
 const prayers=['الفجر','الظهر','العصر','المغرب','العشاء'];
-function renderPrayerChecklist(){const done=state.days[today]?.prayers||[];$('#prayerChecklist').innerHTML=prayers.map((p,i)=>'<article class="prayer-item"><label><input type="checkbox" data-prayer="'+i+'" '+(done.includes(i)?'checked':'')+'><strong>'+p+'</strong></label></article>').join('');$$('[data-prayer]').forEach(c=>c.onchange=()=>{const d=todayData();d.prayers=d.prayers||[];d.prayers=c.checked?[...new Set([...d.prayers,Number(c.dataset.prayer)])]:d.prayers.filter(x=>x!==Number(c.dataset.prayer));save()})}
-showDhikr();renderPrayerChecklist();
-
-const libraryItems=[
-['العقيدة','أصول الإيمان','الإيمان بالله وملائكته وكتبه ورسله واليوم الآخر والقدر.','https://www.islamweb.net/ar/'],
-['العقيدة','أسماء الله الحسنى','معاني الأسماء وآثار الإيمان بها.','https://tafsir.app/'],
-['الفقه','فقه الطهارة','الوضوء والغسل والتيمم وأحكام الطهارة.','https://www.dar-alifta.org/'],
-['الفقه','فقه الصلاة','الشروط والأركان والواجبات والسنن وسجود السهو.','https://www.dar-alifta.org/'],
-['الفقه','فقه الصيام','أحكام الصيام وآدابه والرخص المتعلقة به.','https://www.dar-alifta.org/'],
-['الفقه','الزكاة والحج والعمرة','العبادات المالية ومناسك الحج والعمرة.','https://www.dar-alifta.org/'],
-['السيرة','السيرة النبوية','المولد والبعثة والهجرة وبناء المجتمع.','https://www.islamweb.net/ar/'],
-['السيرة','الشمائل المحمدية','هدي النبي ﷺ وصفاته وأخلاقه ومعاملاته.','https://dorar.net/'],
-['القرآن','أسباب النزول','الأسباب المنقولة مع ضرورة التحقق من الروايات.','https://tafsir.app/'],
-['القرآن','التجويد ومخارج الحروف','مبادئ التلاوة الصحيحة وأحكام التجويد.','https://qurancomplex.gov.sa/'],
-['الحديث','مصطلح الحديث','الصحيح والحسن والضعيف والإسناد والمتن.','https://dorar.net/hadith'],
-['الحديث','البحث في السنة','البحث في دواوين السنة والتخريج والحكم.','https://dorar.net/hadith'],
-['الأخلاق','الأخلاق والآداب','الصدق والأمانة والرحمة وبر الوالدين.','https://dorar.net/'],
-['الأخلاق','تزكية النفس','الإخلاص والصبر والشكر والتوبة ومحاسبة النفس.','https://tafsir.app/']
-];
-function renderLibrary(){
- const q=($('#librarySearch')?.value||'').trim().toLowerCase(),cat=$('#libraryCategory')?.value||'all';
- const categoryNames={aqeedah:'العقيدة',fiqh:'الفقه',seerah:'السيرة',quran:'القرآن',hadith:'الحديث',akhlaq:'الأخلاق'};
- const selectedCategory=categoryNames[cat]||cat;
- const items=libraryItems.filter(x=>(cat==='all'||x[0]===selectedCategory)&&(!q||x.join(' ').toLowerCase().includes(q)));
- $('#libraryCatalog').innerHTML=items.map(x=>'<article class="library-card"><span>۞</span><h3>'+x[1]+'</h3><p>'+x[2]+'</p><small>'+x[0]+'</small><p><a href="'+x[3]+'" target="_blank" rel="noreferrer">المصدر العلمي ←</a></p></article>').join('')||'<p class="muted">لا توجد نتائج مطابقة.</p>';
-}
-$('#librarySearch')?.addEventListener('input',renderLibrary);
-$('#libraryCategory')?.addEventListener('change',renderLibrary);
-renderLibrary();
-async function loadTafsirEditions(){
- const select=$('#tafsirEdition');if(!select)return;
- try{
-  const res=await fetch('https://api.alquran.cloud/v1/edition/type/tafsir');if(!res.ok)throw Error('edition-list');
-  const data=(await res.json()).data||[];
-  const arabic=data.filter(e=>e.language==='ar'&&e.format==='text');
-  select.innerHTML=arabic.map(e=>'<option value="'+e.identifier+'">'+e.name+'</option>').join('');
-  if(!arabic.length)select.innerHTML='<option value="">لا تتوفر تفاسير عربية حاليًا</option>';
- }catch{select.innerHTML='<option value="">تعذر تحميل قائمة التفاسير</option>';}
-}
-$('#loadTafsir')?.addEventListener('click',async()=>{
- const edition=$('#tafsirEdition')?.value;if(!edition){$('#tafsirText').textContent='اختر تفسيرًا عربيًا أولًا.';return;}
- if(!currentPageAyahs.length){$('#tafsirText').textContent='افتح صفحة من المصحف أولًا.';return;}
- $('#tafsirText').textContent='جارٍ تحميل التفسير…';
- try{
-  const res=await fetch('https://api.alquran.cloud/v1/page/'+currentPageNumber+'/'+encodeURIComponent(edition));if(!res.ok)throw Error('tafsir');
-  const data=(await res.json()).data;
-  $('#tafsirText').innerHTML='<h3>تفسير الصفحة '+currentPageNumber+' · '+$('#tafsirEdition').selectedOptions[0].textContent+'</h3>'+data.ayahs.map(a=>'<article class="tafsir-entry"><b>'+a.surah.name+' · الآية '+a.numberInSurah+'</b><p></p></article>').join('');
-  $('#tafsirText .tafsir-entry p').forEach((p,i)=>p.textContent=data.ayahs[i].text);
- }catch{$('#tafsirText').textContent='تعذر تحميل التفسير لهذه الصفحة. جرّب تفسيرًا آخر أو أعد المحاولة.';}
-});
-loadTafsirEditions();
-
-$('#readerMode')?.addEventListener('change',()=>{
- const mode=$('#readerMode').value,max=mode==='page'?604:mode==='surah'?114:30;
- $('#readerNumber').max=max;$('#readerNumber').value=1;
- $('#readerNumberLabel').firstChild.textContent=mode==='page'?'رقم الصفحة ':mode==='surah'?'رقم السورة ':'رقم الجزء ';
-});
-$('#openReader')?.addEventListener('click',async()=>{
- const mode=$('#readerMode').value,n=Math.max(1,Number($('#readerNumber').value)||1);
- if(mode==='page')return loadPage(Math.min(604,n));
- const endpoint=mode==='surah'?'surah/'+Math.min(114,n)+'/quran-uthmani':'juz/'+Math.min(30,n)+'/quran-uthmani';
- resetPlayer('تم فتح مقطع جديد.');
- $('#quranText').textContent='جارٍ تحميل النص…';
- try{
-  const res=await fetch('https://api.alquran.cloud/v1/'+endpoint);if(!res.ok)throw Error();
-  const data=(await res.json()).data;currentPageAyahs=data.ayahs;currentPageNumber=data.ayahs[0]?.page||currentPageNumber;
-  $('#quranText').innerHTML='<h3>'+(mode==='surah'?data.name:'الجزء '+n)+'</h3><div class="ayahs"></div>';
-  $('#quranText .ayahs').textContent=data.ayahs.map(x=>x.text+' ۞').join(' ');
-  $('#audioStatus').textContent='تم تحميل النص. حدد صفحة للمتابعة والاستماع.';
- }catch{$('#quranText').textContent='تعذر جلب النص الآن؛ حاول مرة أخرى.';}
-});
-$('#searchQuran')?.addEventListener('click',async()=>{
- const q=$('#quranSearch').value.trim();if(!q)return;
- $('#searchResults').textContent='جارٍ البحث…';
- try{
-  const res=await fetch('https://api.alquran.cloud/v1/search/'+encodeURIComponent(q)+'/all/quran-uthmani');if(!res.ok)throw Error();
-  const data=(await res.json()).data;
-  $('#searchResults').innerHTML=data.matches.slice(0,30).map(x=>'<article class="search-result"><p>'+x.text+'</p><small>'+x.surah.name+' · الآية '+x.numberInSurah+'</small><button class="text-button" data-open-page="'+x.page+'">افتح الصفحة '+x.page+'</button></article>').join('')||'<p>لا توجد نتائج.</p>';
-  $$('[data-open-page]').forEach(b=>b.onclick=()=>loadPage(Number(b.dataset.openPage)));
- }catch{$('#searchResults').textContent='تعذر البحث الآن. حاول مرة أخرى.';}
-});
-function readMarks(){try{return JSON.parse(localStorage.getItem('zaad-marks')||'[]')}catch{return []}}
-$('#bookmarkAyah')?.addEventListener('click',()=>{
- const first=currentPageAyahs[0];if(!first){$('#readerPersonal').textContent='افتح صفحة أو سورة أولًا.';return;}
- const marks=readMarks();marks.unshift({page:first.page,surah:first.surah.name,ayah:first.numberInSurah,date:today});
- localStorage.setItem('zaad-marks',JSON.stringify(marks.slice(0,100)));$('#readerPersonal').textContent='تم حفظ موضع القراءة.';
-});
-$('#showBookmarks')?.addEventListener('click',()=>{
- const marks=readMarks();$('#readerPersonal').innerHTML=marks.length?marks.map(m=>'<p>'+m.surah+' · آية '+m.ayah+' · صفحة '+m.page+' <button class="text-button" data-mark-page="'+m.page+'">فتح</button></p>').join(''):'لا توجد مواضع محفوظة بعد.';
- $$('[data-mark-page]').forEach(b=>b.onclick=()=>loadPage(Number(b.dataset.markPage)));
-});
-$('#showNotes')?.addEventListener('click',()=>{
- $('#readerPersonal').innerHTML='<textarea id="readerNote" rows="3" placeholder="اكتب فائدة أو تدبرًا شخصيًا..."></textarea><button id="saveReaderNote" class="primary">حفظ الملاحظة</button><div id="savedReaderNotes"></div>';
- const notes=JSON.parse(localStorage.getItem('zaad-notes')||'[]');
- $('#savedReaderNotes').innerHTML=notes.map(n=>'<p>'+n.date+' — '+n.text.replace(/[<>&]/g,'')+'</p>').join('');
- $('#saveReaderNote').onclick=()=>{const value=$('#readerNote').value.trim();if(!value)return;notes.unshift({date:today,text:value});localStorage.setItem('zaad-notes',JSON.stringify(notes.slice(0,100)));$('#showNotes').click();};
-});
-
-
-$('#todayDate').textContent=new Intl.DateTimeFormat(state.lang==='ar'?'ar-EG':'en',{dateStyle:'full'}).format(new Date());$('#counter').textContent=state.counter;setLang(state.lang);renderHabits();renderStats();renderPages();
+function renderPrayer(){const done=todayData().prayers||[];$('#prayerChecklist').replaceChildren();prayers.forEach((name,i)=>{const a=document.createElement('article');a.className='prayer-item';const l=document.createElement('label'),c=document.createElement('input'),s=document.createElement('strong');c.type='checkbox';c.checked=done.includes(i);s.textContent=name;l.append(c,s);a.append(l);c.onchange=()=>{const d=todayData();d.prayers=c.checked?[...new Set([...(d.prayers||[]),i])]:d.prayers.filter(x=>x!==i);safeSave();renderPrayer();};$('#prayerChecklist').append(a);});$('#prayerCount').textContent=done.length+' من 5';$('#prayerBar').style.width=done.length/5*100+'%';}
+const lessons=[{title:'أركان الإسلام',desc:'مدخل لفهم أركان الإسلام الخمسة.',body:'يقوم الإسلام على خمس: شهادة أن لا إله إلا الله وأن محمدًا رسول الله، وإقام الصلاة، وإيتاء الزكاة، وصوم رمضان، وحج البيت لمن استطاع إليه سبيلًا. هذا الحديث أصل جامع في بيان أركان الإسلام.',source:'صحيح البخاري · ٨، وصحيح مسلم · ١٦',url:'https://dorar.net/hadith'},{title:'الطهارة والوضوء',desc:'معنى الطهارة وأصل الوضوء وصفته إجمالًا.',body:'الطهارة باب من أبواب الفقه، ويتعلم المسلم صفة الوضوء وشروطه ونواقضه من الأدلة، مع مراعاة اختلاف بعض التفاصيل بين المذاهب. ابدأ بتعلم الصفة العملية من مصدر موثوق.',source:'دار الإفتاء المصرية',url:'https://www.dar-alifta.org/'},{title:'صفة الصلاة',desc:'أهمية الصلاة وأركانها وما يتصل بها.',body:'الصلاة عبادة عظيمة، ويتعلم المسلم شروطها وأركانها وواجباتها وسننها، ويحرص على الطمأنينة ومتابعة هدي النبي ﷺ. بعض مسائل الصلاة فيها خلاف فقهي معتبر.',source:'دار الإفتاء المصرية',url:'https://www.dar-alifta.org/'},{title:'الصيام',desc:'مقاصد الصيام وأحكامه الأساسية.',body:'الصيام عبادة تقوم على الإمساك بنية التعبد من طلوع الفجر إلى غروب الشمس، وله أحكام ورخص وأعذار. في المسائل الخاصة اسأل جهة إفتاء موثوقة.',source:'دار الإفتاء المصرية',url:'https://www.dar-alifta.org/'},{title:'السيرة النبوية',desc:'محطات رئيسية من حياة النبي ﷺ.',body:'تُدرس السيرة من مصادر موثوقة مع التمييز بين الروايات الصحيحة والضعيفة، ومن محطاتها المولد والبعثة والهجرة وبناء المجتمع في المدينة.',source:'إسلام ويب',url:'https://www.islamweb.net/ar/'},{title:'الأخلاق والآداب',desc:'الصدق والرحمة والأمانة وحسن المعاملة.',body:'من جوامع الأخلاق: الصدق، والأمانة، والرحمة، وكف الأذى، وبر الوالدين، وحسن الجوار. ويظهر أثر العلم في العمل وحسن الخلق.',source:'الدرر السنية',url:'https://dorar.net/'}];
+function renderLessons(){const grid=$('#lessonGrid');if(grid.childElementCount)return;lessons.forEach((x,i)=>{const b=document.createElement('button');b.className='lesson-card';b.innerHTML='<span class="eyebrow">درس تمهيدي · 0'+(i+1)+'</span><h3></h3><p></p><span class="inline-action">افتح الدرس ←</span>';b.querySelector('h3').textContent=x.title;b.querySelector('p').textContent=x.desc;b.onclick=()=>{const d=$('#lessonDetail');d.hidden=false;d.innerHTML='<h2></h2><p></p><small></small><br><a target="_blank" rel="noreferrer">المصدر الأصلي ←</a>';d.querySelector('h2').textContent=x.title;d.querySelector('p').textContent=x.body;d.querySelector('small').textContent='المرجع: '+x.source;d.querySelector('a').href=x.url;d.scrollIntoView({behavior:'smooth',block:'nearest'});};grid.append(b);});}
+const library=[['العقيدة','أصول الإيمان','مدخل إلى أركان الإيمان وأصول الاعتقاد.','https://www.islamweb.net/ar/','✧'],['العقيدة','أسماء الله الحسنى','معاني الأسماء وآثار الإيمان بها.','https://tafsir.app/','✺'],['الفقه','فقه الطهارة','الوضوء والغسل والتيمم وأحكام الطهارة.','https://www.dar-alifta.org/','◈'],['الفقه','فقه الصلاة','الشروط والأركان والسنن وسجود السهو.','https://www.dar-alifta.org/','◷'],['الفقه','فقه الصيام','أحكام الصيام وآدابه والرخص المتعلقة به.','https://www.dar-alifta.org/','☾'],['الفقه','الزكاة والحج','العبادات المالية ومناسك الحج والعمرة.','https://www.dar-alifta.org/','◇'],['القرآن','علوم القرآن','نزول القرآن وجمعه ومكيّه ومدنيّه.','https://qurancomplex.gov.sa/','۞'],['القرآن','التجويد','مخارج الحروف وأحكام التلاوة.','https://qurancomplex.gov.sa/','۞'],['الحديث','مصطلح الحديث','الصحيح والحسن والضعيف والإسناد والمتن.','https://dorar.net/hadith','◇'],['الحديث','شرح الحديث','البحث في دواوين السنة وشروحها.','https://dorar.net/hadith','◇'],['السيرة','السيرة النبوية','محطات السيرة والشمائل النبوية.','https://www.islamweb.net/ar/','☾'],['الأخلاق','الأخلاق والآداب','الصدق والأمانة والرحمة وحسن المعاملة.','https://dorar.net/','✧']];
+function renderLibrary(){const q=$('#librarySearch').value.trim().toLowerCase(),cat=$('#libraryCategory').value;const list=library.filter(x=>(cat==='all'||x[0]===cat)&&(!q||x.join(' ').toLowerCase().includes(q)));const grid=$('#libraryCatalog');grid.replaceChildren();list.forEach(x=>{const a=document.createElement('article');a.className='library-card';a.innerHTML='<span class="lib-icon"></span><h3></h3><p></p><small></small><br><a target="_blank" rel="noreferrer">افتح المصدر ←</a>';a.querySelector('.lib-icon').textContent=x[4];a.querySelector('h3').textContent=x[1];a.querySelector('p').textContent=x[2];a.querySelector('small').textContent=x[0];a.querySelector('a').href=x[3];grid.append(a);});if(!list.length)grid.textContent='لا توجد نتائج مطابقة.';}
+$('#librarySearch').oninput=renderLibrary;$('#libraryCategory').onchange=renderLibrary;
+const names=[['الرَّحْمَٰنُ','واسع الرحمة'],['الرَّحِيمُ','كثير الرحمة بعباده'],['الْمَلِكُ','له الملك والتصرف'],['الْقُدُّوسُ','المنزه عن كل نقص'],['السَّلَامُ','السالم من كل نقص'],['الْمُؤْمِنُ','واهب الأمن ومصدق رسله'],['الْمُهَيْمِنُ','الرقيب والحافظ'],['الْعَزِيزُ','الغالب الذي لا يُغلب'],['الْجَبَّارُ','العالي القاهر وجابر الكسير'],['الْمُتَكَبِّرُ','المتعالي عن صفات الخلق'],['الْخَالِقُ','الموجد للأشياء'],['الْبَارِئُ','الذي خلق الخلق'],['الْمُصَوِّرُ','الذي أعطى كل شيء صورته'],['الْغَفَّارُ','كثير المغفرة'],['الْقَهَّارُ','الغالب لكل شيء'],['الْوَهَّابُ','كثير العطاء'],['الرَّزَّاقُ','الذي يرزق خلقه'],['الْفَتَّاحُ','الذي يفتح أبواب الخير'],['الْعَلِيمُ','المحيط علمه بكل شيء'],['السَّمِيعُ','الذي يسمع كل شيء'],['الْبَصِيرُ','الذي يرى كل شيء'],['الْحَكَمُ','الحاكم بالحق'],['الْعَدْلُ','المنزه عن الظلم'],['اللَّطِيفُ','الرفيق بعباده والعالم بدقائق الأمور'],['الْخَبِيرُ','العالم ببواطن الأمور'],['الْحَلِيمُ','الذي لا يعجل بالعقوبة'],['الْعَظِيمُ','المتصف بالعظمة والكمال'],['الْغَفُورُ','واسع المغفرة'],['الشَّكُورُ','يجزي على العمل القليل كثيرًا'],['الْعَلِيُّ','المتعالي'],['الْكَبِيرُ','العظيم'],['الْحَفِيظُ','الحافظ لكل شيء'],['الْحَسِيبُ','الكافي والمحاسب'],['الْجَلِيلُ','العظيم القدر'],['الْكَرِيمُ','كثير الخير والعطاء'],['الرَّقِيبُ','المطلع والحافظ'],['الْمُجِيبُ','الذي يجيب دعاء عباده'],['الْوَاسِعُ','الذي وسع كل شيء علمًا ورحمة'],['الْحَكِيمُ','الذي يضع الأمور مواضعها'],['الْوَدُودُ','المحب لعباده المؤمنين'],['الْمَجِيدُ','واسع المجد والكمال'],['الْبَاعِثُ','يبعث الخلق بعد الموت'],['الشَّهِيدُ','المطلع على كل شيء'],['الْحَقُّ','الثابت الذي لا شك فيه'],['الْوَكِيلُ','الكفيل بأرزاق عباده'],['الْقَوِيُّ','كامل القوة'],['الْمَتِينُ','شديد القوة'],['الْوَلِيُّ','ناصر المؤمنين'],['الْحَمِيدُ','المستحق للحمد'],['الْمُحْصِي','الذي أحاط بكل شيء عددًا'],['الْمُبْدِئُ','الذي بدأ الخلق'],['الْمُعِيدُ','الذي يعيد الخلق'],['الْمُحْيِي','واهب الحياة'],['الْمُمِيتُ','مقدر الموت'],['الْحَيُّ','كامل الحياة'],['الْقَيُّومُ','القائم بنفسه المقيم لغيره'],['الْوَاجِدُ','الغني الذي لا يعوزه شيء'],['الْمَاجِدُ','الكامل في المجد'],['الْوَاحِدُ','المتفرد'],['الصَّمَدُ','السيد المقصود في الحوائج'],['الْقَادِرُ','تام القدرة'],['الْمُقْتَدِرُ','كامل الاقتدار'],['الْمُقَدِّمُ','يقدم من يشاء'],['الْمُؤَخِّرُ','يؤخر من يشاء'],['الأَوَّلُ','ليس قبله شيء'],['الآخِرُ','ليس بعده شيء'],['الظَّاهِرُ','العالي فوق خلقه'],['الْبَاطِنُ','المحيط بكل شيء'],['الْوَالِي','المالك المدبر'],['الْمُتَعَالِي','المتعالي عن خلقه'],['الْبَرُّ','كثير الإحسان'],['التَّوَّابُ','كثير قبول التوبة'],['الْمُنْتَقِمُ','يعاقب من يستحق بعدله'],['العَفُوُّ','يمحو الذنب ويتجاوز'],['الرَّؤُوفُ','شديد الرحمة'],['مَالِكُ الْمُلْكِ','مالك الملك كله'],['ذُو الْجَلَالِ وَالإِكْرَامِ','صاحب العظمة والإحسان'],['الْمُقْسِطُ','العادل'],['الْجَامِعُ','يجمع الخلق ليوم الحساب'],['الْغَنِيُّ','المستغني عن خلقه'],['الْمُغْنِي','يغني من يشاء'],['الْمَانِعُ','يمنع بحكمته'],['الضَّارُّ','لا يقع شيء إلا بمشيئته'],['النَّافِعُ','بيده النفع'],['النُّورُ','هادي أهل السماوات والأرض'],['الْهَادِي','يهدي من يشاء'],['الْبَدِيعُ','مبدع الخلق'],['الْبَاقِي','الدائم'],['الْوَارِثُ','الباقي بعد فناء الخلق'],['الرَّشِيدُ','المرشد إلى الصواب'],['الصَّبُورُ','لا يعجل بالعقوبة']]; 
+function renderNames(){const q=$('#namesSearch').value.trim();const list=names.filter(n=>!q||n.join(' ').includes(q));$('#namesCount').textContent=list.length+' اسمًا في القائمة';const grid=$('#namesGrid');grid.replaceChildren();list.forEach((n,i)=>{const a=document.createElement('article');a.className='name-card';const b=document.createElement('strong'),s=document.createElement('small');b.textContent=n[0];s.textContent=n[1];a.append(b,s);grid.append(a);});}
+$('#namesSearch').oninput=renderNames;
+const dhadith=[['إنما الأعمال بالنيات، وإنما لكل امرئ ما نوى.','صحيح البخاري · ١','صحيح'],['الدين النصيحة.','صحيح مسلم · ٥٥','صحيح'],['لا يؤمن أحدكم حتى يحب لأخيه ما يحب لنفسه.','صحيح البخاري · ١٣، وصحيح مسلم · ٤٥','صحيح'],['من كان يؤمن بالله واليوم الآخر فليقل خيرًا أو ليصمت.','صحيح البخاري · ٦٠١٨، وصحيح مسلم · ٤٧','صحيح']];
+let hadithIndex=(new Date().getDate()-1)%dhadith.length;
+function renderHadith(){const h=dhadith[hadithIndex];$('#hadithText').textContent='«'+h[0]+'»';$('#hadithSource').textContent=h[1];$('#hadithGrade').textContent=h[2];$('#homeHadith').textContent=h[0];$('#homeHadithSource').textContent=h[1];}
+$('#nextHadith').onclick=()=>{hadithIndex=(hadithIndex+1)%dhadith.length;renderHadith();};
+function renderHabits(){const lang='ar';$('#habitCards').replaceChildren();habits.forEach(h=>{const a=document.createElement('article');a.className='habit-card';const title=document.createElement('h3'),p=document.createElement('p');title.textContent=h.title[lang];p.textContent=h.desc[lang];a.append(title,p);h.steps[lang].forEach((s,i)=>{const l=document.createElement('label'),c=document.createElement('input'),span=document.createElement('span');c.type='checkbox';c.checked=!!todayData().habits[h.id+'-'+i];c.onchange=()=>{todayData().habits[h.id+'-'+i]=c.checked;safeSave();updateStats();};span.textContent=s;l.append(c,span);a.append(l);});$('#habitCards').append(a);});}
+$('#plusCount').onclick=()=>{state.counter=Math.max(0,Number(state.counter)||0)+1;$('#counter').textContent=state.counter;safeSave();};$('#minusCount').onclick=()=>{state.counter=Math.max(0,(Number(state.counter)||0)-1);$('#counter').textContent=state.counter;safeSave();};$('#resetCount').onclick=()=>{state.counter=0;$('#counter').textContent=0;safeSave();};
+$('#exportBtn').onclick=()=>{const blob=new Blob([JSON.stringify({version:1,exportedAt:new Date().toISOString(),state,marks:readJSON('zaad-marks',[]),notes:readJSON('zaad-notes',[])},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='zaad-backup-'+today+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+$('#importFile').onchange=async e=>{const file=e.target.files?.[0];if(!file)return;try{const backup=JSON.parse(await file.text()),incoming=backup.state||backup;if(!incoming.days||typeof incoming.days!=='object')throw Error();state={...defaults,...incoming};safeSave();if(Array.isArray(backup.marks))localStorage.setItem('zaad-marks',JSON.stringify(backup.marks));if(Array.isArray(backup.notes))localStorage.setItem('zaad-notes',JSON.stringify(backup.notes));setTheme();renderWird();renderPrayer();renderHabits();$('#counter').textContent=state.counter||0;notify('تم استيراد النسخة بنجاح.');}catch{notify('ملف النسخة غير صالح أو غير متوافق.');}finally{e.target.value='';}};
+$('#pagesDone').textContent='0';$('#counter').textContent=state.counter||0;renderWird();renderPrayer();renderHabits();renderHadith();showDhikr();loadTafsirEditions();renderLibrary();renderLessons();renderNames();
+const toast=document.createElement('div');toast.id='toast';toast.className='toast';toast.setAttribute('role','status');document.body.append(toast);
