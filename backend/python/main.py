@@ -11,6 +11,7 @@ class DailyResponse(BaseModel):
     status: str
 
 @app.get("/health", response_model=DailyResponse)
+@app.get("/api/health", response_model=DailyResponse)
 def health():
     return DailyResponse(date=date.today().isoformat(), message="Zaad API is running", status="ok")
 
