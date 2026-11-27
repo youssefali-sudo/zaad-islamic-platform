@@ -4,7 +4,7 @@ import { loadZaadEngine, clampCounter } from './zaad-engine.js';
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const now=new Date();
 const today=new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,10);
-const defaults={days:{},counter:0,theme:'dark',lang:'ar',nextPage:1};
+const defaults={days:{},counter:0,theme:'light',lang:'ar',nextPage:1};
 let state;
 let currentPageAyahs=[];
 let reciters=[];
@@ -17,10 +17,13 @@ const save=()=>{localStorage.setItem('zaad-state',JSON.stringify(state));renderS
 function todayData(){return state.days[today] ||= {pages:[],habits:{},wirdStart:state.nextPage||1}}
 function renderStats(){const d=todayData();$('#pagesDone').textContent=d.pages.length;$('#streak').textContent=getStreak(state.days);$('#habitsDone').textContent=Object.values(d.habits).filter(Boolean).length}
 function setLang(lang){state.lang=lang;document.documentElement.lang=lang;document.documentElement.dir=lang==='ar'?'rtl':'ltr';$$('[data-i18n]').forEach(el=>{const k=el.dataset.i18n;if(translations[lang][k])el.textContent=translations[lang][k]});$('#langBtn').textContent=lang==='ar'?'EN':'عربي';save()}
-function renderPages(){const base=todayData().wirdStart||1;const pages=Array.from({length:6},(_,i)=>((base+i-1)%604)+1);$('#pageList').innerHTML=pages.map(n=>'<button class="page-button '+(todayData().pages.includes(n)?'done':'')+'" data-page="'+n+'">صفحة '+n+'</button>').join('');$$('[data-page]').forEach(b=>b.onclick=()=>loadPage(Number(b.dataset.page))); }
-async function loadPage(n){resetPlayer('تم إيقاف التلاوة عند تغيير الصفحة.');$('#quranText').textContent='جارٍ تحميل الصفحة…';try{const r=await fetch('https://api.alquran.cloud/v1/page/'+n+'/quran-uthmani');if(!r.ok)throw Error('network');const j=await r.json();currentPageAyahs=j.data.ayahs;$('#quranText').innerHTML='<div class="ayahs"></div><button id="markPage" class="primary" type="button">علّمت الصفحة كمكتملة</button>';$('#quranText .ayahs').textContent=currentPageAyahs.map(a=>a.text+' ۞').join(' ');$('#markPage').onclick=()=>{todayData().pages=[...new Set([...todayData().pages,n])];const dailyPages=Array.from({length:6},(_,i)=>((todayData().wirdStart+i-1)%604)+1);if(dailyPages.every(page=>todayData().pages.includes(page))){state.nextPage=((todayData().wirdStart+5)%604)+1;}save();renderPages();$('#markPage').textContent='تم تسجيل الصفحة ✓';$('#markPage').disabled=true};if(todayData().pages.includes(n)){$('#markPage').textContent='تم تسجيل الصفحة ✓';$('#markPage').disabled=true}$('#audioStatus').textContent='الورد جاهز للاستماع بصوت القارئ المحدد.'}catch{$('#quranText').textContent='تعذر تحميل النص الآن. تحقق من اتصال الإنترنت ثم حاول مرة أخرى.'}}
+function currentWirdPages(){const base=todayData().wirdStart||1;return Array.from({length:6},(_,i)=>((base+i-1)%604)+1)}
+function wirdComplete(){return currentWirdPages().every(n=>todayData().pages.includes(n))}
+function renderPages(){const pages=currentWirdPages();$('#pageList').innerHTML=pages.map(n=>'<button class="page-button '+(todayData().pages.includes(n)?'done':'')+'" data-page="'+n+'">صفحة '+n+'</button>').join('');$('[data-page]').forEach(b=>b.onclick=()=>loadPage(Number(b.dataset.page)));const done=pages.filter(n=>todayData().pages.includes(n)).length;$('#wirdProgress').textContent='أنجزت '+done+' من 6 صفحات في هذا الورد.';$('#nextWird').hidden=!wirdComplete();}
+$('#nextWird').onclick=()=>{if(!wirdComplete())return;todayData().wirdStart=((todayData().wirdStart+5)%604)+1;currentPageAyahs=[];resetPlayer('بدأت وردًا جديدًا. اختر صفحة للاستمرار.');save();renderPages();$('#quranText').innerHTML='<p class="muted">اختر أول صفحة من الورد الجديد.</p>';};
+async function loadPage(n){resetPlayer('تم إيقاف التلاوة عند تغيير الصفحة.');$('#quranText').textContent='جارٍ تحميل الصفحة…';try{const r=await fetch('https://api.alquran.cloud/v1/page/'+n+'/quran-uthmani');if(!r.ok)throw Error('network');const j=await r.json();currentPageAyahs=j.data.ayahs;$('#quranText').innerHTML='<div class="ayahs"></div><button id="markPage" class="primary" type="button">علّمت الصفحة كمكتملة</button>';$('#quranText .ayahs').textContent=currentPageAyahs.map(a=>a.text+' ۞').join(' ');$('#markPage').onclick=()=>{todayData().pages=[...new Set([...todayData().pages,n])];const dailyPages=Array.from({length:6},(_,i)=>((todayData().wirdStart+i-1)%604)+1);save();renderPages();$('#markPage').textContent='تم تسجيل الصفحة ✓';$('#markPage').disabled=true};if(todayData().pages.includes(n)){$('#markPage').textContent='تم تسجيل الصفحة ✓';$('#markPage').disabled=true}$('#audioStatus').textContent='الورد جاهز للاستماع بصوت القارئ المحدد.'}catch{$('#quranText').textContent='تعذر تحميل النص الآن. تحقق من اتصال الإنترنت ثم حاول مرة أخرى.'}}
 function renderHabits(){const lang=state.lang;$('#habitCards').innerHTML=habits.map(h=>'<article class="habit-card"><h3>'+h.title[lang]+'</h3><p>'+h.desc[lang]+'</p>'+h.steps[lang].map((s,i)=>'<label><input type="checkbox" data-habit="'+h.id+'" data-step="'+i+'" '+(todayData().habits[h.id+'-'+i]?'checked':'')+'><span>'+s+'</span></label>').join('')+'</article>').join('');$$('[data-habit]').forEach(c=>c.onchange=()=>{todayData().habits[c.dataset.habit+'-'+c.dataset.step]=c.checked;save()})}
-function showTab(id){$$('.panel').forEach(p=>p.classList.toggle('active',p.id===id));$$('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===id));if(id==='quran')renderPages()}
+function showTab(id){$('.panel').forEach(p=>p.classList.toggle('active',p.id===id));$('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===id));if(id==='quran')renderPages();if(id==='prayer')renderPrayerChecklist()}
 $$('[data-tab]').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));$$('[data-go]').forEach(b=>b.onclick=()=>showTab(b.dataset.go));
 $('#langBtn').onclick=()=>{setLang(state.lang==='ar'?'en':'ar');renderHabits()};$('#themeBtn').onclick=()=>{document.body.classList.toggle('light');state.theme=document.body.classList.contains('light')?'light':'dark';save()};
 if(state.theme==='light')document.body.classList.add('light');
@@ -145,4 +148,16 @@ $('#reciterSelect').addEventListener('change',()=>{
 
 loadReciters();
 loadZaadEngine();
+
+const dhikrs=[['سُبْحَانَ اللَّهِ وَبِحَمْدِهِ','صحيح البخاري · 6405'],['لَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللَّهِ','صحيح البخاري · 6384'],['سُبْحَانَ اللَّهِ، وَالْحَمْدُ لِلَّهِ','صحيح مسلم · 2695']];
+let dhikrIndex=0,dhikrCount=0;
+function showDhikr(){if(!$('#dhikrText'))return;$('#dhikrText').textContent=dhikrs[dhikrIndex][0];$('#dhikrSource').textContent=dhikrs[dhikrIndex][1];$('#dhikrCount').textContent=dhikrCount}
+$('#dhikrPlus')?.addEventListener('click',()=>{dhikrCount++;showDhikr()});
+$('#dhikrMinus')?.addEventListener('click',()=>{dhikrCount=Math.max(0,dhikrCount-1);showDhikr()});
+$('#dhikrReset')?.addEventListener('click',()=>{dhikrCount=0;showDhikr()});
+$('#nextDhikr')?.addEventListener('click',()=>{dhikrIndex=(dhikrIndex+1)%dhikrs.length;dhikrCount=0;showDhikr()});
+const prayers=['الفجر','الظهر','العصر','المغرب','العشاء'];
+function renderPrayerChecklist(){const done=state.days[today]?.prayers||[];$('#prayerChecklist').innerHTML=prayers.map((p,i)=>'<article class="prayer-item"><label><input type="checkbox" data-prayer="'+i+'" '+(done.includes(i)?'checked':'')+'><strong>'+p+'</strong></label></article>').join('');$('[data-prayer]').forEach(c=>c.onchange=()=>{const d=todayData();d.prayers=d.prayers||[];d.prayers=c.checked?[...new Set([...d.prayers,Number(c.dataset.prayer)])]:d.prayers.filter(x=>x!==Number(c.dataset.prayer));save()})}
+showDhikr();renderPrayerChecklist();
+
 $('#todayDate').textContent=new Intl.DateTimeFormat(state.lang==='ar'?'ar-EG':'en',{dateStyle:'full'}).format(new Date());$('#counter').textContent=state.counter;setLang(state.lang);renderHabits();renderStats();renderPages();
