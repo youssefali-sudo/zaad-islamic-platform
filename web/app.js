@@ -21,7 +21,7 @@ function currentWirdPages(){const base=todayData().wirdStart||1;return Array.fro
 function wirdComplete(){return currentWirdPages().every(n=>todayData().pages.includes(n))}
 function renderPages(){const pages=currentWirdPages();$('#pageList').innerHTML=pages.map(n=>'<button class="page-button '+(todayData().pages.includes(n)?'done':'')+'" data-page="'+n+'">صفحة '+n+'</button>').join('');$('[data-page]').forEach(b=>b.onclick=()=>loadPage(Number(b.dataset.page)));const done=pages.filter(n=>todayData().pages.includes(n)).length;$('#wirdProgress').textContent='أنجزت '+done+' من 6 صفحات في هذا الورد.';$('#nextWird').hidden=!wirdComplete();}
 $('#nextWird').onclick=()=>{if(!wirdComplete())return;todayData().wirdStart=((todayData().wirdStart+5)%604)+1;currentPageAyahs=[];resetPlayer('بدأت وردًا جديدًا. اختر صفحة للاستمرار.');save();renderPages();$('#quranText').innerHTML='<p class="muted">اختر أول صفحة من الورد الجديد.</p>';};
-async function loadPage(n){resetPlayer('تم إيقاف التلاوة عند تغيير الصفحة.');$('#quranText').textContent='جارٍ تحميل الصفحة…';try{const r=await fetch('https://api.alquran.cloud/v1/page/'+n+'/quran-uthmani');if(!r.ok)throw Error('network');const j=await r.json();currentPageAyahs=j.data.ayahs;$('#quranText').innerHTML='<div class="ayahs"></div><button id="markPage" class="primary" type="button">علّمت الصفحة كمكتملة</button>';$('#quranText .ayahs').textContent=currentPageAyahs.map(a=>a.text+' ۞').join(' ');$('#markPage').onclick=()=>{todayData().pages=[...new Set([...todayData().pages,n])];const dailyPages=Array.from({length:6},(_,i)=>((todayData().wirdStart+i-1)%604)+1);save();renderPages();$('#markPage').textContent='تم تسجيل الصفحة ✓';$('#markPage').disabled=true};if(todayData().pages.includes(n)){$('#markPage').textContent='تم تسجيل الصفحة ✓';$('#markPage').disabled=true}$('#audioStatus').textContent='الورد جاهز للاستماع بصوت القارئ المحدد.'}catch{$('#quranText').textContent='تعذر تحميل النص الآن. تحقق من اتصال الإنترنت ثم حاول مرة أخرى.'}}
+async function loadPage(n){resetPlayer('تم إيقاف التلاوة عند تغيير الصفحة.');$('#quranText').textContent='جارٍ تحميل الصفحة…';try{const r=await fetch('https://api.alquran.cloud/v1/page/'+n+'/quran-uthmani');if(!r.ok)throw Error('network');const j=await r.json();currentPageAyahs=j.data.ayahs;$('#quranText').innerHTML='<div class="ayahs"></div><button id="markPage" class="primary" type="button">علّمت الصفحة كمكتملة</button>';$('#quranText .ayahs').textContent=currentPageAyahs.map(a=>a.text+' ۞').join(' ');$('#markPage').onclick=()=>{todayData().pages=[...new Set([...todayData().pages,n])];save();renderPages();$('#markPage').textContent='تم تسجيل الصفحة ✓';$('#markPage').disabled=true};if(todayData().pages.includes(n)){$('#markPage').textContent='تم تسجيل الصفحة ✓';$('#markPage').disabled=true}$('#audioStatus').textContent='الورد جاهز للاستماع بصوت القارئ المحدد.'}catch{$('#quranText').textContent='تعذر تحميل النص الآن. تحقق من اتصال الإنترنت ثم حاول مرة أخرى.'}}
 function renderHabits(){const lang=state.lang;$('#habitCards').innerHTML=habits.map(h=>'<article class="habit-card"><h3>'+h.title[lang]+'</h3><p>'+h.desc[lang]+'</p>'+h.steps[lang].map((s,i)=>'<label><input type="checkbox" data-habit="'+h.id+'" data-step="'+i+'" '+(todayData().habits[h.id+'-'+i]?'checked':'')+'><span>'+s+'</span></label>').join('')+'</article>').join('');$$('[data-habit]').forEach(c=>c.onchange=()=>{todayData().habits[c.dataset.habit+'-'+c.dataset.step]=c.checked;save()})}
 function showTab(id){$('.panel').forEach(p=>p.classList.toggle('active',p.id===id));$('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===id));if(id==='quran')renderPages();if(id==='prayer')renderPrayerChecklist()}
 $$('[data-tab]').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));$$('[data-go]').forEach(b=>b.onclick=()=>showTab(b.dataset.go));
@@ -159,5 +159,76 @@ $('#nextDhikr')?.addEventListener('click',()=>{dhikrIndex=(dhikrIndex+1)%dhikrs.
 const prayers=['الفجر','الظهر','العصر','المغرب','العشاء'];
 function renderPrayerChecklist(){const done=state.days[today]?.prayers||[];$('#prayerChecklist').innerHTML=prayers.map((p,i)=>'<article class="prayer-item"><label><input type="checkbox" data-prayer="'+i+'" '+(done.includes(i)?'checked':'')+'><strong>'+p+'</strong></label></article>').join('');$('[data-prayer]').forEach(c=>c.onchange=()=>{const d=todayData();d.prayers=d.prayers||[];d.prayers=c.checked?[...new Set([...d.prayers,Number(c.dataset.prayer)])]:d.prayers.filter(x=>x!==Number(c.dataset.prayer));save()})}
 showDhikr();renderPrayerChecklist();
+
+const libraryItems=[
+['العقيدة','أصول الإيمان','الإيمان بالله وملائكته وكتبه ورسله واليوم الآخر والقدر.','https://www.islamweb.net/ar/'],
+['العقيدة','أسماء الله الحسنى','معاني الأسماء وآثار الإيمان بها.','https://tafsir.app/'],
+['الفقه','فقه الطهارة','الوضوء والغسل والتيمم وأحكام الطهارة.','https://www.dar-alifta.org/'],
+['الفقه','فقه الصلاة','الشروط والأركان والواجبات والسنن وسجود السهو.','https://www.dar-alifta.org/'],
+['الفقه','فقه الصيام','أحكام الصيام وآدابه والرخص المتعلقة به.','https://www.dar-alifta.org/'],
+['الفقه','الزكاة والحج والعمرة','العبادات المالية ومناسك الحج والعمرة.','https://www.dar-alifta.org/'],
+['السيرة','السيرة النبوية','المولد والبعثة والهجرة وبناء المجتمع.','https://www.islamweb.net/ar/'],
+['السيرة','الشمائل المحمدية','هدي النبي ﷺ وصفاته وأخلاقه ومعاملاته.','https://dorar.net/'],
+['القرآن','أسباب النزول','الأسباب المنقولة مع ضرورة التحقق من الروايات.','https://tafsir.app/'],
+['القرآن','التجويد ومخارج الحروف','مبادئ التلاوة الصحيحة وأحكام التجويد.','https://qurancomplex.gov.sa/'],
+['الحديث','مصطلح الحديث','الصحيح والحسن والضعيف والإسناد والمتن.','https://dorar.net/hadith'],
+['الحديث','البحث في السنة','البحث في دواوين السنة والتخريج والحكم.','https://dorar.net/hadith'],
+['الأخلاق','الأخلاق والآداب','الصدق والأمانة والرحمة وبر الوالدين.','https://dorar.net/'],
+['الأخلاق','تزكية النفس','الإخلاص والصبر والشكر والتوبة ومحاسبة النفس.','https://tafsir.app/']
+];
+function renderLibrary(){
+ const q=($('#librarySearch')?.value||'').trim().toLowerCase(),cat=$('#libraryCategory')?.value||'all';
+ const items=libraryItems.filter(x=>(cat==='all'||x[0]===cat)&&(!q||x.join(' ').toLowerCase().includes(q)));
+ $('#libraryCatalog').innerHTML=items.map(x=>'<article class="library-card"><span>۞</span><h3>'+x[1]+'</h3><p>'+x[2]+'</p><small>'+x[0]+'</small><p><a href="'+x[3]+'" target="_blank" rel="noreferrer">المصدر العلمي ←</a></p></article>').join('')||'<p class="muted">لا توجد نتائج مطابقة.</p>';
+}
+$('#librarySearch')?.addEventListener('input',renderLibrary);
+$('#libraryCategory')?.addEventListener('change',renderLibrary);
+renderLibrary();
+$('#readerMode')?.addEventListener('change',()=>{
+ const mode=$('#readerMode').value,max=mode==='page'?604:mode==='surah'?114:30;
+ $('#readerNumber').max=max;$('#readerNumber').value=1;
+ $('#readerNumberLabel').firstChild.textContent=mode==='page'?'رقم الصفحة ':mode==='surah'?'رقم السورة ':'رقم الجزء ';
+});
+$('#openReader')?.addEventListener('click',async()=>{
+ const mode=$('#readerMode').value,n=Math.max(1,Number($('#readerNumber').value)||1);
+ if(mode==='page')return loadPage(Math.min(604,n));
+ const endpoint=mode==='surah'?'surah/'+Math.min(114,n)+'/quran-uthmani':'juz/'+Math.min(30,n)+'/quran-uthmani';
+ resetPlayer('تم فتح مقطع جديد.');
+ $('#quranText').textContent='جارٍ تحميل النص…';
+ try{
+  const res=await fetch('https://api.alquran.cloud/v1/'+endpoint);if(!res.ok)throw Error();
+  const data=(await res.json()).data;currentPageAyahs=data.ayahs;
+  $('#quranText').innerHTML='<h3>'+(mode==='surah'?data.name:'الجزء '+n)+'</h3><div class="ayahs"></div>';
+  $('#quranText .ayahs').textContent=data.ayahs.map(x=>x.text+' ۞').join(' ');
+  $('#audioStatus').textContent='تم تحميل النص. حدد صفحة للمتابعة والاستماع.';
+ }catch{$('#quranText').textContent='تعذر جلب النص الآن؛ حاول مرة أخرى.';}
+});
+$('#searchQuran')?.addEventListener('click',async()=>{
+ const q=$('#quranSearch').value.trim();if(!q)return;
+ $('#searchResults').textContent='جارٍ البحث…';
+ try{
+  const res=await fetch('https://api.alquran.cloud/v1/search/'+encodeURIComponent(q)+'/all/quran-uthmani');if(!res.ok)throw Error();
+  const data=(await res.json()).data;
+  $('#searchResults').innerHTML=data.matches.slice(0,30).map(x=>'<article class="search-result"><p>'+x.text+'</p><small>'+x.surah.name+' · الآية '+x.numberInSurah+'</small><button class="text-button" data-open-page="'+x.page+'">افتح الصفحة '+x.page+'</button></article>').join('')||'<p>لا توجد نتائج.</p>';
+  $('[data-open-page]').forEach(b=>b.onclick=()=>loadPage(Number(b.dataset.openPage)));
+ }catch{$('#searchResults').textContent='تعذر البحث الآن. حاول مرة أخرى.';}
+});
+function readMarks(){try{return JSON.parse(localStorage.getItem('zaad-marks')||'[]')}catch{return []}}
+$('#bookmarkAyah')?.addEventListener('click',()=>{
+ const first=currentPageAyahs[0];if(!first){$('#readerPersonal').textContent='افتح صفحة أو سورة أولًا.';return;}
+ const marks=readMarks();marks.unshift({page:first.page,surah:first.surah.name,ayah:first.numberInSurah,date:today});
+ localStorage.setItem('zaad-marks',JSON.stringify(marks.slice(0,100)));$('#readerPersonal').textContent='تم حفظ موضع القراءة.';
+});
+$('#showBookmarks')?.addEventListener('click',()=>{
+ const marks=readMarks();$('#readerPersonal').innerHTML=marks.length?marks.map(m=>'<p>'+m.surah+' · آية '+m.ayah+' · صفحة '+m.page+' <button class="text-button" data-mark-page="'+m.page+'">فتح</button></p>').join(''):'لا توجد مواضع محفوظة بعد.';
+ $('[data-mark-page]').forEach(b=>b.onclick=()=>loadPage(Number(b.dataset.markPage)));
+});
+$('#showNotes')?.addEventListener('click',()=>{
+ $('#readerPersonal').innerHTML='<textarea id="readerNote" rows="3" placeholder="اكتب فائدة أو تدبرًا شخصيًا..."></textarea><button id="saveReaderNote" class="primary">حفظ الملاحظة</button><div id="savedReaderNotes"></div>';
+ const notes=JSON.parse(localStorage.getItem('zaad-notes')||'[]');
+ $('#savedReaderNotes').innerHTML=notes.map(n=>'<p>'+n.date+' — '+n.text.replace(/[<>&]/g,'')+'</p>').join('');
+ $('#saveReaderNote').onclick=()=>{const value=$('#readerNote').value.trim();if(!value)return;notes.unshift({date:today,text:value});localStorage.setItem('zaad-notes',JSON.stringify(notes.slice(0,100)));$('#showNotes').click();};
+});
+
 
 $('#todayDate').textContent=new Intl.DateTimeFormat(state.lang==='ar'?'ar-EG':'en',{dateStyle:'full'}).format(new Date());$('#counter').textContent=state.counter;setLang(state.lang);renderHabits();renderStats();renderPages();
